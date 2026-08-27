@@ -56,6 +56,29 @@ The recipes intentionally delegate environment and Python command execution to
 `uv`. A future CI workflow should invoke `just check` rather than reproduce the
 individual commands.
 
+## VS Code debugging
+
+Run `just setup` first, then open the repository directory in VS Code. The
+shared launch configurations use `.venv/bin/python` and appear in the **Run and
+Debug** panel:
+
+- **ObjectSnip: Run** starts the normal tray application.
+- **ObjectSnip: Debug captures** also saves source and region artifacts under
+  `.artifacts/captures`.
+
+Both launch the `objectsnip` module in the integrated terminal, so breakpoints
+work inside Qt event callbacks and portal responses. Useful initial breakpoint
+locations include:
+
+- `ObjectSnipApplication.start_capture()`;
+- `PortalScreenshotService.request()`;
+- `PortalScreenshotService._on_response()`;
+- `ObjectSnipApplication._portal_captured()`;
+- `CaptureOverlay.mousePressEvent()`; and
+- `CaptureOverlay._lock_region()`.
+
+The workspace also enables pytest discovery.
+
 The intended `Super+Shift+O` global shortcut is deferred until a platform
 integration adapter is added; the current slice does not pretend a window-local
 shortcut is global.

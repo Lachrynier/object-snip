@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ObjectSnip: Run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "objectsnip",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "ObjectSnip: Debug captures",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "objectsnip",
+      "args": ["--debug-captures"],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  ]
+}
