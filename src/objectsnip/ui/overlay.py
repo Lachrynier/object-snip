@@ -174,11 +174,7 @@ class CaptureOverlay(QWidget):
     def _image_tolerance(self) -> int:
         return max(
             1,
-            round(
-                self.HIT_TOLERANCE
-                * self._image_size.width
-                / max(1, self.width())
-            ),
+            round(self.HIT_TOLERANCE * self._image_size.width / max(1, self.width())),
         )
 
     def _update_cursor(self, point: Point) -> None:

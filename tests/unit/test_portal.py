@@ -10,9 +10,12 @@ def test_unwrap_dbus_variant() -> None:
 
 
 def test_screenshot_path_from_results() -> None:
-    assert screenshot_path_from_results(
-        {"uri": QDBusVariant("file:///tmp/objectsnip.png")}
-    ) == "/tmp/objectsnip.png"
+    assert (
+        screenshot_path_from_results(
+            {"uri": QDBusVariant("file:///tmp/objectsnip.png")}
+        )
+        == "/tmp/objectsnip.png"
+    )
 
 
 @pytest.mark.parametrize(
