@@ -27,13 +27,34 @@ rectangle, adjust it by dragging its interior, edges, or corners, then choose
 **Lock region**. Locking currently verifies the crop handoff with a tray
 notification; segmentation is intentionally not implemented yet.
 
-Run project checks with:
+## Project commands
+
+The root `justfile` is the executable source of truth for routine development
+commands. Run `just` to list them.
+
+| Command | Purpose |
+|---|---|
+| `just setup` | Install or update the locked development environment |
+| `just run` | Start the system-tray application |
+| `just debug` | Start with capture artifacts saved under `.artifacts/captures` |
+| `just test` | Run the test suite |
+| `just lint` | Check for Ruff lint violations |
+| `just format-check` | Verify formatting without changing files |
+| `just format` | Format the codebase |
+| `just typecheck` | Run Pyright static analysis |
+| `just check` | Run every non-mutating quality gate |
+| `just fix` | Apply safe lint fixes and formatting |
+| `just build` | Build source and wheel distributions |
+
+Before committing, normally run:
 
 ```bash
-uv run pytest
-uv run ruff check .
-uv run pyright
+just check
 ```
+
+The recipes intentionally delegate environment and Python command execution to
+`uv`. A future CI workflow should invoke `just check` rather than reproduce the
+individual commands.
 
 The intended `Super+Shift+O` global shortcut is deferred until a platform
 integration adapter is added; the current slice does not pretend a window-local
