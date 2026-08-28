@@ -22,8 +22,8 @@ the image on which semantic object selection will operate.
 ## 0.1 user flow
 
 1. ObjectSnip is running in the system tray.
-2. User chooses **Capture region** from the tray menu. A global shortcut will
-   invoke the same action after the portable workflow is established.
+2. User chooses **Capture region** from the tray menu or presses
+   `Super+Shift+O`; both invoke the same action.
 3. ObjectSnip immediately captures the relevant screen and displays those
    frozen pixels in a fullscreen, frameless overlay.
 4. User drags to create a rectangular context region.
@@ -43,10 +43,9 @@ the image on which semantic object selection will operate.
 | Shortcut while overlay is active | Do not create a nested capture session |
 | Application exits | Unregister the shortcut and remove the tray item |
 
-`Super+Shift+O` remains the intended first global shortcut: `O` is mnemonic for
-“object.” Registration is Deferred because global shortcuts necessarily require
-desktop-specific integration. The initial implementation contains no fake
-window-local substitute.
+`Super+Shift+O` is the initial global shortcut: `O` is mnemonic for “object.”
+On Wayland it is registered through the XDG Global Shortcuts portal, so the
+desktop can mediate and persist the binding.
 
 ## Frozen-screen behavior
 
@@ -119,6 +118,7 @@ desktop may mediate permission. Other Qt platforms use direct screen capture.
 
 - [ ] Application starts and remains accessible through a system-tray item.
 - [x] The tray menu's **Capture region** action invokes capture.
+- [x] `Super+Shift+O` globally invokes the same capture action on Wayland.
 - [ ] Invocation captures one screen before showing the overlay.
 - [ ] A fullscreen frameless overlay displays the stable captured pixels.
 - [ ] Dragging creates a normalized rectangular draft in every drag direction.
@@ -154,7 +154,7 @@ desktop may mediate permission. Other Qt platforms use direct screen capture.
 
 ## Deferred
 
-SAM integration, object prompts, global and configurable shortcuts,
+SAM integration, object prompts, configurable shortcuts,
 multi-monitor capture, mixed-DPI displays, full Wayland/X11 breadth, Windows,
 macOS, screen
 recording, capture history, and polished native permission flows are outside

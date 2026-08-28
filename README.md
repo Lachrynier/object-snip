@@ -79,9 +79,9 @@ locations include:
 
 The workspace also enables pytest discovery.
 
-The intended `Super+Shift+O` global shortcut is deferred until a platform
-integration adapter is added; the current slice does not pretend a window-local
-shortcut is global.
+`Super+Shift+O` invokes **Capture region** globally. On Wayland, ObjectSnip
+registers it through the XDG Global Shortcuts portal; the desktop may show a
+one-time confirmation or allow choosing a different binding.
 
 ### Wayland compatibility
 

@@ -15,6 +15,7 @@ from objectsnip.capture.screen import (
 )
 from objectsnip.debug_capture import DebugCaptureSession, DebugCaptureWriter
 from objectsnip.domain.geometry import Rect
+from objectsnip.shortcuts.portal import PortalGlobalShortcutService
 from objectsnip.ui.overlay import CaptureOverlay
 
 
@@ -38,6 +39,10 @@ class ObjectSnipApplication(QObject):
         self._portal.captured.connect(self._portal_captured)
         self._portal.cancelled.connect(self._portal_cancelled)
         self._portal.failed.connect(self._capture_failed)
+        self._shortcut = PortalGlobalShortcutService(self)
+        self._shortcut.activated.connect(self.start_capture)
+        self._shortcut.failed.connect(self._shortcut_failed)
+        application.aboutToQuit.connect(self._shortcut.stop)
 
         icon = application.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         self._tray = QSystemTrayIcon(icon, self)
@@ -54,6 +59,7 @@ class ObjectSnipApplication(QObject):
         self._tray.setContextMenu(menu)
         self._tray.activated.connect(self._tray_activated)
         self._tray.show()
+        self._shortcut.start()
 
     @Slot()
     def start_capture(self) -> None:
@@ -115,6 +121,15 @@ class ObjectSnipApplication(QObject):
         self._capture_screen = None
         QMessageBox.critical(None, "ObjectSnip", message)
 
+    @Slot(str)
+    def _shortcut_failed(self, message: str) -> None:
+        self._tray.showMessage(
+            "Global shortcut unavailable",
+            message,
+            QSystemTrayIcon.MessageIcon.Warning,
+            5000,
+        )
+
     @Slot(QSystemTrayIcon.ActivationReason)
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -132,7 +147,7 @@ class ObjectSnipApplication(QObject):
             "Context region locked",
             f"Prepared {crop.width()} × {crop.height()} pixels at "
             f"({bounds.left}, {bounds.top}).{debug_message}",
-            QSystemTrayIcon.MessageIcon.Information,
+            QSystemTrayIcon.MessageIcon.NoIcon,
             2500,
         )
 
