@@ -49,6 +49,14 @@ def region_is_lockable(draft: Rect | None, minimum_size: int) -> bool:
     )
 
 
+def handles_are_visible(draft: Rect | None, is_dragging: bool) -> bool:
+    return draft is not None and draft.is_valid and not is_dragging
+
+
+def lock_button_text(draft: Rect) -> str:
+    return f"Lock region ({draft.width} × {draft.height} px)"
+
+
 class CaptureOverlay(QWidget):
     HANDLE_RADIUS = 5
     HIT_TOLERANCE = 8
@@ -107,10 +115,11 @@ class CaptureOverlay(QWidget):
         painter.drawImage(view_rect, self._screenshot, source_rect)
         painter.setPen(QPen(QColor("#55c2ff"), 2))
         painter.drawRect(view_rect)
-        painter.setBrush(QColor("#f7fbff"))
-        painter.setPen(QPen(QColor("#147eae"), 1))
-        for point in self._handle_points(view_rect):
-            painter.drawEllipse(point, self.HANDLE_RADIUS, self.HANDLE_RADIUS)
+        if handles_are_visible(self._draft, self._press_point is not None):
+            painter.setBrush(QColor("#f7fbff"))
+            painter.setPen(QPen(QColor("#147eae"), 1))
+            for point in self._handle_points(view_rect):
+                painter.drawEllipse(point, self.HANDLE_RADIUS, self.HANDLE_RADIUS)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() != Qt.MouseButton.LeftButton:
@@ -163,6 +172,7 @@ class CaptureOverlay(QWidget):
         self._active_handle = Handle.OUTSIDE
         self._sync_button()
         self._update_cursor(self._to_image_point(event.position().toPoint()))
+        self.update()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -182,6 +192,9 @@ class CaptureOverlay(QWidget):
         lockable = region_is_lockable(self._draft, self.MINIMUM_SIZE)
         self._lock_button.setEnabled(lockable)
         self._lock_button.setVisible(lockable)
+        if lockable and self._draft is not None:
+            self._lock_button.setText(lock_button_text(self._draft))
+            self._lock_button.adjustSize()
         self._position_lock_button()
 
     def _position_lock_button(self) -> None:

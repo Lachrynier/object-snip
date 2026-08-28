@@ -1,7 +1,12 @@
 from PySide6.QtCore import QPoint, QRect, QSize
 
 from objectsnip.domain.geometry import Rect
-from objectsnip.ui.overlay import lock_button_position, region_is_lockable
+from objectsnip.ui.overlay import (
+    handles_are_visible,
+    lock_button_position,
+    lock_button_text,
+    region_is_lockable,
+)
 
 BUTTON = QSize(100, 30)
 VIEWPORT = QSize(800, 600)
@@ -39,3 +44,15 @@ def test_region_must_be_marked_and_large_enough_to_lock() -> None:
     assert not region_is_lockable(Rect(0, 0, 7, 8), 8)
     assert not region_is_lockable(Rect(0, 0, 8, 7), 8)
     assert region_is_lockable(Rect(0, 0, 8, 8), 8)
+
+
+def test_handles_are_hidden_until_drag_is_released() -> None:
+    draft = Rect(0, 0, 100, 100)
+
+    assert not handles_are_visible(None, is_dragging=False)
+    assert not handles_are_visible(draft, is_dragging=True)
+    assert handles_are_visible(draft, is_dragging=False)
+
+
+def test_lock_button_text_includes_exact_pixel_dimensions() -> None:
+    assert lock_button_text(Rect(10, 20, 249, 440)) == ("Lock region (239 × 420 px)")
