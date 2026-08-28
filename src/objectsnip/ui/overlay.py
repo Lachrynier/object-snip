@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtCore import QPoint, QRect, QSize, Qt
 from PySide6.QtGui import (
     QColor,
     QImage,
@@ -16,6 +16,37 @@ from PySide6.QtWidgets import QPushButton, QWidget
 
 from objectsnip.capture.crop import crop_context
 from objectsnip.domain.geometry import Handle, Point, Rect, Size, hit_test, resize_rect
+
+
+def lock_button_position(
+    selection: QRect,
+    button_size: QSize,
+    viewport_size: QSize,
+    gap: int = 12,
+    margin: int = 12,
+) -> QPoint:
+    max_x = max(0, viewport_size.width() - button_size.width())
+    max_y = max(0, viewport_size.height() - button_size.height())
+    preferred_x = selection.x() + (selection.width() - button_size.width()) // 2
+    x = max(min(margin, max_x), min(preferred_x, max_x - min(margin, max_x)))
+
+    below = selection.bottom() + gap
+    above = selection.top() - gap - button_size.height()
+    if below <= max_y - min(margin, max_y):
+        y = below
+    elif above >= min(margin, max_y):
+        y = above
+    else:
+        y = max(0, min(below, max_y))
+    return QPoint(x, y)
+
+
+def region_is_lockable(draft: Rect | None, minimum_size: int) -> bool:
+    return (
+        draft is not None
+        and draft.width >= minimum_size
+        and draft.height >= minimum_size
+    )
 
 
 class CaptureOverlay(QWidget):
@@ -49,15 +80,13 @@ class CaptureOverlay(QWidget):
 
         self._lock_button = QPushButton("Lock region", self)
         self._lock_button.setEnabled(False)
+        self._lock_button.hide()
         self._lock_button.clicked.connect(self._lock_region)
         self._lock_button.adjustSize()
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().resizeEvent(event)
-        margin = 24
-        x = max(margin, (self.width() - self._lock_button.width()) // 2)
-        y = max(margin, self.height() - self._lock_button.height() - margin)
-        self._lock_button.move(x, y)
+        self._position_lock_button()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         del event
@@ -150,10 +179,20 @@ class CaptureOverlay(QWidget):
         self.close()
 
     def _sync_button(self) -> None:
-        self._lock_button.setEnabled(
-            self._draft is not None
-            and self._draft.width >= self.MINIMUM_SIZE
-            and self._draft.height >= self.MINIMUM_SIZE
+        lockable = region_is_lockable(self._draft, self.MINIMUM_SIZE)
+        self._lock_button.setEnabled(lockable)
+        self._lock_button.setVisible(lockable)
+        self._position_lock_button()
+
+    def _position_lock_button(self) -> None:
+        if self._draft is None or not self._draft.is_valid:
+            return
+        self._lock_button.move(
+            lock_button_position(
+                self._to_view_rect(self._draft),
+                self._lock_button.size(),
+                self.size(),
+            )
         )
 
     def _to_image_point(self, view_point: QPoint) -> Point:
