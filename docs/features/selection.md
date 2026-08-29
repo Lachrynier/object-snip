@@ -45,6 +45,10 @@ All entries are Draft until reviewed.
 | `Delete` or `Backspace` | Remove the selected prompt | 0.2 |
 | `1` | Activate Include mode | 0.2 |
 | `2` | Activate Exclude mode | 0.2 |
+| Mouse wheel over image | Zoom toward or away from the image point under the cursor | 0.2 |
+| Drag with Pan tool active | Move the zoomed image within the viewport | 0.2 |
+| Middle-button drag | Temporarily pan without changing the active toolbar tool | 0.2 |
+| Reset zoom toolbar action | Return to the centered fit-to-window view | 0.2 |
 | `Tab` / `Shift+Tab` | Select next / previous mask candidate when available | 0.2, optional pending evaluation |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo a session mutation | 0.3 unless promoted |
 | Drag in Box mode | Create or replace an editable approximate box prompt | 0.3, Draft |
@@ -63,6 +67,11 @@ No output shortcut is defined here. Confirmation, copy, and save are owned by
   deletable.
 - Prompt positions are stored in image coordinates, independent of view zoom or
   Qt widget coordinates.
+- Zooming keeps the image point beneath the cursor stationary in the viewport;
+  zooming out applies the reciprocal transform. Prompt markers retain a constant
+  screen-space size at every zoom level.
+- Middle-button panning is independent of the persistent Pan toolbar action, and
+  wheel zoom remains available during either pan gesture.
 - Any prompt-set mutation advances the session prediction revision.
 - Only a result for the current applicable revision may replace the visible
   mask.

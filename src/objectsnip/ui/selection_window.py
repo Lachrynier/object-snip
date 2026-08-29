@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.typing import NDArray
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QPaintEvent,
     QPen,
     QResizeEvent,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
     QFrame,
@@ -40,7 +41,7 @@ def fitted_image_rect(image_size: QSize, viewport_size: QSize) -> QRect:
 
 
 def view_to_image_point(
-    position: QPoint, target: QRect, image_size: QSize
+    position: QPointF, target: QRectF, image_size: QSize
 ) -> tuple[float, float] | None:
     if not target.contains(position) or target.isEmpty() or image_size.isEmpty():
         return None
@@ -49,11 +50,34 @@ def view_to_image_point(
     return min(x, image_size.width() - 1), min(y, image_size.height() - 1)
 
 
+def zoomed_image_rect(
+    canvas: QRectF,
+    image_size: QSize,
+    zoom: float,
+    center: QPointF,
+) -> QRectF:
+    if canvas.isEmpty() or image_size.isEmpty():
+        return QRectF()
+    fitted = image_size.scaled(
+        canvas.size().toSize(), Qt.AspectRatioMode.KeepAspectRatio
+    )
+    scale = fitted.width() / image_size.width() * zoom
+    return QRectF(
+        canvas.center().x() - center.x() * scale,
+        canvas.center().y() - center.y() * scale,
+        image_size.width() * scale,
+        image_size.height() * scale,
+    )
+
+
 class ObjectSelectionWindow(QWidget):
     retry_requested = Signal()
     prompts_changed = Signal(object)
     DEFAULT_SIZE = QSize(960, 640)
     MARKER_RADIUS = 7
+    MIN_ZOOM = 1.0
+    MAX_ZOOM = 16.0
+    ZOOM_STEP = 1.25
 
     def __init__(self, image: QImage) -> None:
         super().__init__()
@@ -61,6 +85,11 @@ class ObjectSelectionWindow(QWidget):
         self._mask_image: QImage | None = None
         self._points: list[PointPrompt] = []
         self._point_mode = PointLabel.INCLUDE
+        self._zoom = self.MIN_ZOOM
+        self._view_center = QPointF(self._image.width() / 2, self._image.height() / 2)
+        self._pan_origin: QPointF | None = None
+        self._pan_center_origin: QPointF | None = None
+        self._pan_button: Qt.MouseButton | None = None
         self._encoding_ready = False
         self.setWindowTitle("ObjectSnip")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -81,6 +110,14 @@ class ObjectSelectionWindow(QWidget):
             lambda: self._set_point_mode(PointLabel.EXCLUDE)
         )
         self._toolbar.addActions((self._include_action, self._exclude_action))
+        self._toolbar.addSeparator()
+        self._reset_zoom_action = QAction("Reset zoom", self)
+        self._reset_zoom_action.triggered.connect(self._reset_zoom)
+        self._toolbar.addAction(self._reset_zoom_action)
+        self._pan_action = QAction("Pan", self)
+        self._pan_action.setCheckable(True)
+        self._pan_action.toggled.connect(self._pan_toggled)
+        self._toolbar.addAction(self._pan_action)
         self._toolbar.setStyleSheet(
             "QToolButton:checked { font-weight: bold; }"
             "QToolButton[text='Positive'] { color: #35c759; }"
@@ -184,35 +221,85 @@ class ObjectSelectionWindow(QWidget):
     def _set_point_mode(self, mode: PointLabel) -> None:
         self._point_mode = mode
 
-    def _image_rect(self) -> QRect:
-        available = QRect(
+    def _canvas_rect(self) -> QRectF:
+        return QRectF(
             0,
             self._toolbar.height(),
             self.width(),
             self.height() - self._toolbar.height(),
         )
-        fitted = fitted_image_rect(self._image.size(), available.size())
-        fitted.translate(available.topLeft())
-        return fitted
 
-    def _view_to_image(self, position: QPoint) -> tuple[float, float] | None:
+    def _image_rect(self) -> QRectF:
+        return zoomed_image_rect(
+            self._canvas_rect(), self._image.size(), self._zoom, self._view_center
+        )
+
+    def _view_to_image(self, position: QPointF) -> tuple[float, float] | None:
         return view_to_image_point(position, self._image_rect(), self._image.size())
 
-    def _image_to_view(self, point: PointPrompt) -> QPoint:
+    def _image_to_view(self, point: PointPrompt) -> QPointF:
         target = self._image_rect()
-        return QPoint(
-            round(target.left() + point.x * target.width() / self._image.width()),
-            round(target.top() + point.y * target.height() / self._image.height()),
+        return QPointF(
+            target.left() + point.x * target.width() / self._image.width(),
+            target.top() + point.y * target.height() / self._image.height(),
+        )
+
+    def _reset_zoom(self) -> None:
+        self._zoom = self.MIN_ZOOM
+        self._view_center = QPointF(self._image.width() / 2, self._image.height() / 2)
+        self.update()
+
+    def _pan_toggled(self, active: bool) -> None:
+        self.setCursor(
+            Qt.CursorShape.OpenHandCursor if active else Qt.CursorShape.ArrowCursor
+        )
+
+    def _clamp_view_center(self, center: QPointF) -> QPointF:
+        canvas = self._canvas_rect()
+        target = zoomed_image_rect(
+            canvas,
+            self._image.size(),
+            self._zoom,
+            QPointF(self._image.width() / 2, self._image.height() / 2),
+        )
+        scale = target.width() / self._image.width()
+
+        def clamp_axis(value: float, image_extent: int, canvas_extent: float) -> float:
+            visible_extent = canvas_extent / scale
+            if visible_extent >= image_extent:
+                lower = max(0.0, image_extent - visible_extent / 2)
+                upper = min(float(image_extent), visible_extent / 2)
+            else:
+                lower = visible_extent / 2
+                upper = image_extent - visible_extent / 2
+            return max(lower, min(upper, value))
+
+        return QPointF(
+            clamp_axis(center.x(), self._image.width(), canvas.width()),
+            clamp_axis(center.y(), self._image.height(), canvas.height()),
         )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() is not Qt.MouseButton.LeftButton or not self._encoding_ready:
+        if not self._encoding_ready:
             super().mousePressEvent(event)
             return
-        position = event.position().toPoint()
+        position = event.position()
+        starts_pan = event.button() is Qt.MouseButton.MiddleButton or (
+            event.button() is Qt.MouseButton.LeftButton and self._pan_action.isChecked()
+        )
+        if starts_pan:
+            if self._image_rect().contains(position):
+                self._pan_origin = position
+                self._pan_center_origin = QPointF(self._view_center)
+                self._pan_button = event.button()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            return
+        if event.button() is not Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
         for index, point in enumerate(self._points):
             delta = self._image_to_view(point) - position
-            if delta.manhattanLength() <= self.MARKER_RADIUS * 2:
+            if abs(delta.x()) + abs(delta.y()) <= self.MARKER_RADIUS * 2:
                 del self._points[index]
                 self.prompts_changed.emit(tuple(self._points))
                 self.update()
@@ -222,6 +309,65 @@ class ObjectSelectionWindow(QWidget):
             self._points.append(PointPrompt(*image_position, self._point_mode))
             self.prompts_changed.emit(tuple(self._points))
             self.update()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._pan_origin is None or self._pan_center_origin is None:
+            super().mouseMoveEvent(event)
+            return
+        target = self._image_rect()
+        scale = target.width() / self._image.width()
+        movement = event.position() - self._pan_origin
+        self._view_center = self._clamp_view_center(
+            QPointF(
+                self._pan_center_origin.x() - movement.x() / scale,
+                self._pan_center_origin.y() - movement.y() / scale,
+            )
+        )
+        self.update()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() is self._pan_button and self._pan_origin is not None:
+            self._pan_origin = None
+            self._pan_center_origin = None
+            self._pan_button = None
+            self.setCursor(
+                Qt.CursorShape.OpenHandCursor
+                if self._pan_action.isChecked()
+                else Qt.CursorShape.ArrowCursor
+            )
+            return
+        super().mouseReleaseEvent(event)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        image_position = self._view_to_image(event.position())
+        steps = event.angleDelta().y() / 120
+        if image_position is None or steps == 0:
+            super().wheelEvent(event)
+            return
+        previous_zoom = self._zoom
+        self._zoom = max(
+            self.MIN_ZOOM,
+            min(self.MAX_ZOOM, self._zoom * self.ZOOM_STEP**steps),
+        )
+        if self._zoom == previous_zoom:
+            event.accept()
+            return
+        canvas_center = self._canvas_rect().center()
+        fitted = self._image.size().scaled(
+            self._canvas_rect().size().toSize(), Qt.AspectRatioMode.KeepAspectRatio
+        )
+        scale = fitted.width() / self._image.width() * self._zoom
+        self._view_center = self._clamp_view_center(
+            QPointF(
+                image_position[0] - (event.position().x() - canvas_center.x()) / scale,
+                image_position[1] - (event.position().y() - canvas_center.y()) / scale,
+            )
+        )
+        if self._pan_origin is not None:
+            self._pan_origin = event.position()
+            self._pan_center_origin = QPointF(self._view_center)
+        self.update()
+        event.accept()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         del event

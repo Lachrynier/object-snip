@@ -1,6 +1,10 @@
-from PySide6.QtCore import QPoint, QRect, QSize
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize
 
-from objectsnip.ui.selection_window import fitted_image_rect, view_to_image_point
+from objectsnip.ui.selection_window import (
+    fitted_image_rect,
+    view_to_image_point,
+    zoomed_image_rect,
+)
 
 
 def test_landscape_image_is_fitted_and_vertically_centered() -> None:
@@ -32,3 +36,15 @@ def test_view_point_maps_to_original_image_coordinates() -> None:
         25.0,
     )
     assert view_to_image_point(QPoint(50, 50), target, QSize(100, 50)) is None
+
+
+def test_zoomed_image_rect_uses_image_coordinate_as_view_center() -> None:
+    canvas = QRectF(0, 40, 800, 400)
+
+    target = zoomed_image_rect(canvas, QSize(400, 200), 2, QPointF(100, 50))
+
+    assert target == QRectF(0, 40, 1600, 800)
+    assert view_to_image_point(canvas.center(), target, QSize(400, 200)) == (
+        100.0,
+        50.0,
+    )
