@@ -3,8 +3,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from objectsnip.segmentation.models import (
+    DEFAULT_SAM2_MODEL,
+    SAM2_MODEL_NAMES,
+    SAM2_MODELS,
+)
+
 DEFAULT_DEBUG_CAPTURE_DIRECTORY = Path(".artifacts/captures")
-DEFAULT_SAM2_CHECKPOINT = Path(".models/sam2.1_hiera_tiny.pt")
+DEFAULT_SAM2_CHECKPOINT = SAM2_MODELS[DEFAULT_SAM2_MODEL].checkpoint
 
 
 def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
@@ -27,11 +33,17 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
         help="segmentation backend; defaults to sam2",
     )
     parser.add_argument(
+        "--model",
+        choices=SAM2_MODEL_NAMES,
+        default=DEFAULT_SAM2_MODEL,
+        help=f"SAM 2.1 model size; defaults to {DEFAULT_SAM2_MODEL}",
+    )
+    parser.add_argument(
         "--sam2-checkpoint",
         type=Path,
-        default=DEFAULT_SAM2_CHECKPOINT,
+        default=None,
         metavar="PATH",
-        help=f"SAM 2.1 checkpoint; defaults to {DEFAULT_SAM2_CHECKPOINT}",
+        help="custom checkpoint path; overrides the --model default",
     )
     parser.add_argument(
         "--sam2-device",
@@ -39,7 +51,10 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
         default="auto",
         help="SAM 2 inference device; defaults to auto",
     )
-    return parser.parse_args(arguments)
+    parsed = parser.parse_args(arguments)
+    if parsed.sam2_checkpoint is None:
+        parsed.sam2_checkpoint = SAM2_MODELS[parsed.model].checkpoint
+    return parsed
 
 
 def main() -> None:
@@ -49,6 +64,7 @@ def main() -> None:
 
     segmenter = create_segmenter(
         arguments.segmenter,
+        model=arguments.model,
         checkpoint=arguments.sam2_checkpoint,
         device=arguments.sam2_device,
     )

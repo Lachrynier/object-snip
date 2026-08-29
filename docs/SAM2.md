@@ -1,7 +1,7 @@
 # SAM 2 integration
 
 **Status:** Implemented  
-**Backend:** Official SAM 2.1 Hiera Tiny
+**Backend:** Official SAM 2.1 Hiera models
 
 This document owns the concrete SAM 2 integration contract, model setup,
 runtime behavior, and the parity required from the deterministic fake backend.
@@ -13,8 +13,17 @@ Selection interaction remains owned by
 ObjectSnip uses Meta's official
 [`facebookresearch/sam2`](https://github.com/facebookresearch/sam2) package,
 pinned to an exact Git commit in `pyproject.toml`. The integration uses the
-static-image `SAM2ImagePredictor` with the improved SAM 2.1 Hiera Tiny
-configuration:
+static-image `SAM2ImagePredictor` with the improved SAM 2.1 Hiera checkpoints.
+Tiny is the default; all official sizes are available:
+
+| `--model` value | Parameters | Default checkpoint |
+| --- | ---: | --- |
+| `tiny` | 38.9M | `.models/sam2.1_hiera_tiny.pt` |
+| `small` | 46M | `.models/sam2.1_hiera_small.pt` |
+| `base-plus` | 80.8M | `.models/sam2.1_hiera_base_plus.pt` |
+| `large` | 224.4M | `.models/sam2.1_hiera_large.pt` |
+
+The default model uses:
 
 - config: `configs/sam2.1/sam2.1_hiera_t.yaml`;
 - checkpoint: `sam2.1_hiera_tiny.pt`;
@@ -36,11 +45,25 @@ just setup
 just model
 ```
 
-The checkpoint defaults to `.models/sam2.1_hiera_tiny.pt`. Another location or
-device can be selected at runtime:
+Download another size by passing its name to the recipe:
 
 ```bash
-uv run objectsnip --sam2-checkpoint /path/to/model.pt --sam2-device cpu
+just model small
+just model base-plus
+just model large
+```
+
+Select the matching installed model at runtime with `--model`:
+
+```bash
+uv run objectsnip --model small
+```
+
+The checkpoint path is inferred from the selected model. A custom path or
+device can still be selected explicitly:
+
+```bash
+uv run objectsnip --model large --sam2-checkpoint /path/to/model.pt --sam2-device cpu
 ```
 
 `--sam2-device auto` is the default. It chooses CUDA, then Apple MPS, then CPU.

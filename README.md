@@ -26,7 +26,7 @@ uv run objectsnip
 Choose **Capture region** from the tray menu (or double-click its icon), draw a
 rectangle, adjust it by dragging its interior, edges, or corners, then choose
 **Lock region**. Locking opens the object-selection workspace and sends the crop
-to SAM 2.1 Hiera Tiny on a background thread. The image remains visible beneath
+to the selected SAM 2.1 Hiera model on a background thread. The image remains visible beneath
 the preparation state until its reusable embedding is ready. See
 [`docs/SAM2.md`](docs/SAM2.md) for setup, runtime options, and the backend
 contract.
@@ -40,6 +40,7 @@ commands. Run `just` to list them.
 |---|---|
 | `just setup` | Install or update the locked development environment |
 | `just model` | Download and verify the official SAM 2.1 Tiny checkpoint |
+| `just model small` | Download and verify another SAM 2.1 model size |
 | `just run` | Start the system-tray application |
 | `just debug` | Start with capture artifacts saved under `.artifacts/captures` |
 | `just test` | Run the test suite |
