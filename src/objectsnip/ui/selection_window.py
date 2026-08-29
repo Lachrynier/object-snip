@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QToolBar,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -100,6 +101,9 @@ class ObjectSelectionWindow(QWidget):
         self.resize(self.DEFAULT_SIZE)
 
         self._toolbar = QToolBar(self)
+        self._toolbar.setObjectName("selectionToolbar")
+        self._toolbar.setMovable(False)
+        self._toolbar.setFloatable(False)
         modes = QActionGroup(self)
         modes.setExclusive(True)
         self._include_action = QAction("Positive", modes)
@@ -141,10 +145,80 @@ class ObjectSelectionWindow(QWidget):
         self._pan_action.setCheckable(True)
         self._pan_action.toggled.connect(self._pan_toggled)
         self._toolbar.addAction(self._pan_action)
+        self._set_toolbar_role(self._include_action, "positive")
+        self._set_toolbar_role(self._exclude_action, "negative")
+        self._set_toolbar_role(self._reset_prompts_action, "reset")
+        for action in self._candidate_actions:
+            self._set_toolbar_role(action, "candidate")
+        self._set_toolbar_role(self._reset_zoom_action, "navigation")
+        self._set_toolbar_role(self._pan_action, "pan")
         self._toolbar.setStyleSheet(
-            "QToolButton:checked { font-weight: bold; }"
-            "QToolButton[text='Positive'] { color: #35c759; }"
-            "QToolButton[text='Negative'] { color: #ff453a; }"
+            "QToolBar#selectionToolbar {"
+            "  background: #30343b;"
+            "  border: 0;"
+            "  border-bottom: 1px solid #4c515a;"
+            "  spacing: 5px;"
+            "  padding: 7px 9px;"
+            "}"
+            "QToolBar#selectionToolbar::separator {"
+            "  background: #555b65;"
+            "  width: 1px;"
+            "  margin: 5px 6px;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton {"
+            "  color: #f2f4f7;"
+            "  background: #41464f;"
+            "  border: 1px solid #555b65;"
+            "  border-radius: 6px;"
+            "  padding: 6px 10px;"
+            "  font-weight: 500;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton:hover {"
+            "  background: #505761;"
+            "  border-color: #737b87;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton:pressed {"
+            "  background: #25282e;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton:disabled {"
+            "  color: #9298a1;"
+            "  background: #363a41;"
+            "  border-color: #42474f;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='positive']:checked {"
+            "  color: #071b0d;"
+            "  background: #58d477;"
+            "  border-color: #7ee598;"
+            "  font-weight: 700;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='negative']:checked {"
+            "  color: #240707;"
+            "  background: #ff6861;"
+            "  border-color: #ff8b85;"
+            "  font-weight: 700;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='candidate']:checked {"
+            "  color: #071521;"
+            "  background: #55b9f3;"
+            "  border-color: #86cff8;"
+            "  font-weight: 700;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='pan']:checked {"
+            "  color: #160b28;"
+            "  background: #b99af7;"
+            "  border-color: #d0bafc;"
+            "  font-weight: 700;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='reset'] {"
+            "  color: #ffd18a;"
+            "  background: #454038;"
+            "  border-color: #78654a;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='reset']:hover {"
+            "  color: #ffe1b0;"
+            "  background: #5a4d3b;"
+            "  border-color: #a58150;"
+            "}"
         )
 
         self._status_overlay = QFrame(self)
@@ -287,6 +361,11 @@ class ObjectSelectionWindow(QWidget):
 
     def _set_point_mode(self, mode: PointLabel) -> None:
         self._point_mode = mode
+
+    def _set_toolbar_role(self, action: QAction, role: str) -> None:
+        button = self._toolbar.widgetForAction(action)
+        if isinstance(button, QToolButton):
+            button.setProperty("toolRole", role)
 
     def _canvas_rect(self) -> QRectF:
         return QRectF(
