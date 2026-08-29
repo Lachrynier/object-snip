@@ -11,6 +11,7 @@ smallest relevant set below; follow links when a task crosses a boundary.
 | System boundaries, dependency rules, technical invariants | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Current milestone, sequencing, project status | [`ROADMAP.md`](ROADMAP.md) |
 | Selection interaction and prompts | [`features/selection.md`](features/selection.md) |
+| SAM 2 backend contract and setup | [`SAM2.md`](SAM2.md) |
 | Screen capture and frozen overlay | [`features/capture.md`](features/capture.md) |
 | Clipboard and file output | [`features/export.md`](features/export.md) |
 | Reasons for consequential technical choices | [`decisions/`](decisions/README.md) |
@@ -27,7 +28,7 @@ table wins. Fix the non-owning reference rather than copying the requirement.
 | Change screenshot behavior | `PRODUCT.md`, `features/capture.md`, relevant capture/UI code and tests |
 | Change clipboard or saved output | `PRODUCT.md`, `features/export.md`, relevant export code and tests |
 | Change session state or dependency direction | `ARCHITECTURE.md`, affected feature file, relevant code and tests |
-| Add or compare a segmentation backend | `ARCHITECTURE.md`, `ROADMAP.md`, segmentation interface and benchmarks |
+| Add or compare a segmentation backend | `ARCHITECTURE.md`, `ROADMAP.md`, `SAM2.md`, segmentation interface and benchmarks |
 | Choose the next work item | `PRODUCT.md`, `ROADMAP.md` |
 | Reconsider a foundational choice | Relevant live document and decision records |
 

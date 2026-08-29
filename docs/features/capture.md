@@ -30,8 +30,8 @@ the image on which semantic object selection will operate.
 5. The draft rectangle can be moved or resized precisely.
 6. User activates **Lock region**.
 7. ObjectSnip commits the enclosed screenshot pixels as the context crop.
-8. For milestone 0.1, the flow stops at this handoff boundary. Later,
-   segmentation encodes the committed crop.
+8. The object-selection workspace opens and begins encoding the committed crop
+   asynchronously.
 
 ## Invocation and lifecycle
 
@@ -87,8 +87,10 @@ Activating it:
 4. prevents further draft editing in milestone 0.1; and
 5. emits the crop through the capture-to-segmentation handoff.
 
-Milestone 0.1 uses a placeholder receiver or preview to prove this handoff. It
-does not load SAM or implement object prompting.
+The handoff opens the object-selection workspace and invokes a backend-neutral
+image segmenter. The real SAM 2.1 backend encodes the crop; its deterministic
+fake mirrors the same contract for tests. Object prompts remain owned by the
+selection workflow.
 
 ## Display and coordinate rules
 

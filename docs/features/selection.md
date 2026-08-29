@@ -20,11 +20,17 @@ output are specified in [`export.md`](export.md).
 ## 0.2 user flow
 
 1. Selection receives the locked context crop from capture.
-2. User clicks the desired object in Include mode.
-3. An include marker appears immediately and prediction starts asynchronously.
-4. The newest valid mask is displayed over the image.
-5. If necessary, the user adds an exclude point, moves or deletes a point, or
+2. The workspace displays the crop immediately while encoding it in the
+   background.
+3. User clicks the desired object in Include mode once encoding is ready.
+4. An include marker appears immediately and prediction starts asynchronously.
+5. The newest valid mask is displayed over the image.
+6. If necessary, the user adds an exclude point, moves or deletes a point, or
    selects another candidate.
+
+While encoding is pending, the image remains visible beneath a translucent
+`Preparing image…` state and prompt input is unavailable. An encoding failure
+offers Retry. Closing or replacing the workspace invalidates pending results.
 
 ## Behavior
 
@@ -93,20 +99,22 @@ a product requirement.
 
 ## 0.2 acceptance criteria
 
-- [ ] A locked context crop can be encoded and displayed for selection.
-- [ ] Include and exclude points can be added and are visually distinct.
-- [ ] Existing points can be selected, moved, and deleted.
-- [ ] Each committed prompt edit requests prediction for the new revision.
-- [ ] A backend-neutral segmentation result can contain one or more masks.
-- [ ] The active mask is displayed transparently over the image.
+- [x] A locked context crop can be encoded and displayed for selection through
+      the real SAM 2.1 backend or deterministic fake.
+- [x] Include and exclude points can be added and are visually distinct.
+- [ ] Existing points can be selected and moved; points can be deleted by clicking
+      their marker.
+- [x] Each committed prompt edit requests prediction for the new revision.
+- [x] A backend-neutral segmentation result can contain one or more masks.
+- [x] The highest-scoring mask is displayed transparently over the image.
 - [ ] Candidate cycling works when a backend provides multiple candidates, or
       the experiment is explicitly removed after evaluation.
 - [ ] The UI stays responsive while prediction is running.
-- [ ] Out-of-order prediction completion cannot display a stale result.
-- [ ] View/image coordinate transformations have deterministic tests.
+- [x] Out-of-order prediction completion cannot display a stale result.
+- [x] View/image coordinate transformations have deterministic tests.
 - [ ] Prompt and session transitions have deterministic tests.
-- [ ] UI/session development can run with a deterministic fake segmenter.
-- [ ] At least one real promptable backend works through the same interface.
+- [x] UI/session development can run with a deterministic fake segmenter.
+- [x] At least one real promptable backend works through the same interface.
 
 ## Open decisions
 

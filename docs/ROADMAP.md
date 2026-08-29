@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** Draft  
-**Active milestone:** 0.1 — Capture and context region
+**Active milestone:** 0.2 — Interactive object selection
 
 This document owns sequencing, milestone scope, and status. Feature documents
 own behavior; roadmap entries link to them rather than restating all their
@@ -13,7 +13,7 @@ requirements.
 |---|---|---|
 | 0.0 Documentation baseline | Implemented | Establish small, maintainable sources of truth |
 | 0.1 Capture and context region | Implemented | Prove portable tray invocation and precise model-input cropping without SAM |
-| 0.2 Interactive object selection | Deferred | Prove model-backed prompt and mask interaction on the locked crop |
+| 0.2 Interactive object selection | In progress | Prove model-backed prompt and mask interaction on the locked crop |
 | 0.3 Daily utility | Deferred | Complete the invoke-select-copy workflow |
 | 0.4 Selection quality | Deferred | Improve difficult masks after the core works |
 | 0.5 Platform robustness | Deferred | Harden desktop integration and distribution |
@@ -43,6 +43,12 @@ support.
 
 Feed the locked context crop into a common segmentation interface and implement
 the 0.2 scope in [`features/selection.md`](features/selection.md).
+
+The current slice provides the object-selection window, background image
+encoding lifecycle, real SAM 2.1 Hiera Tiny backend, contract-compatible fake,
+loading state, retry behavior, positive and negative point prompts, prompt
+removal, highest-scoring mask rendering, and stale-result rejection. Point
+movement and candidate cycling remain to be implemented.
 
 Purpose:
 

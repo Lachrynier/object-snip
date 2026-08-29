@@ -1,0 +1,1 @@
+"""Promptable image-segmentation adapters."""

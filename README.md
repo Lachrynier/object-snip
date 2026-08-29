@@ -3,9 +3,9 @@
 ObjectSnip is a local-first desktop tool for selecting an object from a frozen
 screenshot and copying it as a transparent image.
 
-The project is in early development. The first vertical slice provides a tray
-application and an editable context-region workflow; model inference comes
-afterward.
+The project is in early development. The current vertical slice provides a tray
+application, an editable context-region workflow, and the asynchronous
+selection workspace, and SAM 2.1 image encoding.
 
 ## Documentation
 
@@ -19,13 +19,17 @@ The project uses modern Python packaging and tooling through
 
 ```bash
 uv sync
+just model
 uv run objectsnip
 ```
 
 Choose **Capture region** from the tray menu (or double-click its icon), draw a
 rectangle, adjust it by dragging its interior, edges, or corners, then choose
-**Lock region**. Locking currently verifies the crop handoff with a tray
-notification; segmentation is intentionally not implemented yet.
+**Lock region**. Locking opens the object-selection workspace and sends the crop
+to SAM 2.1 Hiera Tiny on a background thread. The image remains visible beneath
+the preparation state until its reusable embedding is ready. See
+[`docs/SAM2.md`](docs/SAM2.md) for setup, runtime options, and the backend
+contract.
 
 ## Project commands
 
@@ -35,6 +39,7 @@ commands. Run `just` to list them.
 | Command | Purpose |
 |---|---|
 | `just setup` | Install or update the locked development environment |
+| `just model` | Download and verify the official SAM 2.1 Tiny checkpoint |
 | `just run` | Start the system-tray application |
 | `just debug` | Start with capture artifacts saved under `.artifacts/captures` |
 | `just test` | Run the test suite |

@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "dbus-next>=0.2.3",
+    "sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4",
     "pyside6>=6.8",
 ]
 
@@ -26,9 +27,15 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/objectsnip"]
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = [
+    "integration: tests that require model weights or external runtime support",
+]
 
 [tool.ruff]
 line-length = 88

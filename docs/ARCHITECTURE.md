@@ -112,7 +112,7 @@ frozen screenshot + draft rectangle
                  ▼
        committed context crop
                  │
-          future image encoder
+       background image encoder
 ```
 
 Unlocking or revising an already encoded crop is not part of the first
@@ -134,18 +134,26 @@ uniform-image guard to reject unusable buffers such as a black XWayland root.
 
 ## Segmentation boundary
 
-The minimal conceptual interface is:
+The implemented interface is:
 
 ```python
-class Segmenter(Protocol):
-    def set_image(self, image: ImageArray) -> None: ...
-    def predict(self, prompts: PromptSet) -> SegmentationResult: ...
+class ImageSegmenter(Protocol):
+    def load(self) -> None: ...
+    def set_image(self, image: ImageData) -> ImageEncoding: ...
+    def predict(self, request: PredictionRequest) -> SegmentationResult: ...
 ```
 
-The concrete types will be established by implementation, not copied verbatim
-from this sketch. The interface must support cached image encoding when a
-backend offers it. Optional backend capabilities may advertise support for
-negative points, boxes, multiple candidates, or future prompt types.
+The first implemented boundary converts Qt images into immutable RGB image
+data, preloads an encoder on a persistent single-worker executor, and encodes
+each committed crop away from the GUI event loop. Request generations prevent
+results for closed or replaced workspaces from becoming active. The official
+SAM 2.1 Hiera Tiny adapter is the default backend. A deterministic fake mirrors
+its request/result contract so most lifecycle and session tests need neither
+weights nor an accelerator. [`SAM2.md`](SAM2.md) owns the concrete contract.
+
+The interface must support cached image encoding when a backend offers it.
+Optional backend capabilities may advertise support for negative points,
+boxes, multiple candidates, or future prompt types.
 
 A deterministic fake backend is a first-class development adapter. UI and
 session work should not require model weights, a GPU, or network access.

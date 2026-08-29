@@ -6,6 +6,10 @@ default:
 setup:
     uv sync
 
+# Download and verify the official SAM 2.1 Hiera Tiny checkpoint.
+model:
+    uv run python scripts/download_sam2.py
+
 # Start the system-tray application.
 run:
     uv run objectsnip
