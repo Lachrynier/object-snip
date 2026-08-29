@@ -6,8 +6,8 @@ default:
 setup:
     uv sync
 
-# Download and verify an official SAM 2.1 checkpoint (tiny by default).
-model model="tiny":
+# Download and verify an official SAM 2.1 checkpoint (small by default).
+model model="small":
     uv run python scripts/download_sam2.py --model {{model}}
 
 # Start the system-tray application.

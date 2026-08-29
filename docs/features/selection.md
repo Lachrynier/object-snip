@@ -70,8 +70,10 @@ No output shortcut is defined here. Confirmation, copy, and save are owned by
 - Zooming keeps the image point beneath the cursor stationary in the viewport;
   zooming out applies the reciprocal transform. Prompt markers retain a constant
   screen-space size at every zoom level.
-- The centered fit-to-window image bounds form a fixed viewport. Zoomed content
-  is clipped to those bounds, and panning cannot reveal background within them.
+- At fit-to-window zoom, the centered image bounds form the viewport. As the
+  image is enlarged, the viewport expands with it into the letterboxed area,
+  up to the full window below the toolbar. Panning cannot reveal background
+  within the viewport.
 - Middle-button panning is independent of the persistent Pan toolbar action, and
   wheel zoom remains available during either pan gesture.
 - Any prompt-set mutation advances the session prediction revision.

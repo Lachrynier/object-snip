@@ -14,7 +14,7 @@ ObjectSnip uses Meta's official
 [`facebookresearch/sam2`](https://github.com/facebookresearch/sam2) package,
 pinned to an exact Git commit in `pyproject.toml`. The integration uses the
 static-image `SAM2ImagePredictor` with the improved SAM 2.1 Hiera checkpoints.
-Tiny is the default; all official sizes are available:
+Small is the default; all official sizes are available:
 
 | `--model` value | Parameters | Default checkpoint |
 | --- | ---: | --- |
@@ -25,13 +25,13 @@ Tiny is the default; all official sizes are available:
 
 The default model uses:
 
-- config: `configs/sam2.1/sam2.1_hiera_t.yaml`;
-- checkpoint: `sam2.1_hiera_tiny.pt`;
+- config: `configs/sam2.1/sam2.1_hiera_s.yaml`;
+- checkpoint: `sam2.1_hiera_small.pt`;
 - official checkpoint URL:
-  `https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt`;
+  `https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt`;
 - expected SHA-256:
-  `7402e0d864fa82708a20fbd15bc84245c2f26dff0eb43a4b5b93452deb34be69`;
-- expected file size: 156,008,466 bytes.
+  `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`;
+- expected file size: 184,416,285 bytes.
 
 The package and model are Apache-2.0 licensed by Meta. Model weights are not
 committed to this repository.
@@ -48,7 +48,7 @@ just model
 Download another size by passing its name to the recipe:
 
 ```bash
-just model small
+just model tiny
 just model base-plus
 just model large
 ```

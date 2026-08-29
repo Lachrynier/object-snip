@@ -41,6 +41,20 @@ def fitted_image_rect(image_size: QSize, viewport_size: QSize) -> QRect:
     )
 
 
+def zoomed_viewport_rect(canvas: QRectF, image_size: QSize, zoom: float) -> QRectF:
+    if canvas.isEmpty() or image_size.isEmpty():
+        return QRectF()
+    fitted = QRectF(fitted_image_rect(image_size, canvas.size().toSize()))
+    width = min(canvas.width(), fitted.width() * zoom)
+    height = min(canvas.height(), fitted.height() * zoom)
+    return QRectF(
+        canvas.center().x() - width / 2,
+        canvas.center().y() - height / 2,
+        width,
+        height,
+    )
+
+
 def view_to_image_point(
     position: QPointF, target: QRectF, image_size: QSize
 ) -> tuple[float, float] | None:
@@ -376,6 +390,9 @@ class ObjectSelectionWindow(QWidget):
         )
 
     def _viewport_rect(self) -> QRectF:
+        return zoomed_viewport_rect(self._canvas_rect(), self._image.size(), self._zoom)
+
+    def _fitted_viewport_rect(self) -> QRectF:
         canvas = self._canvas_rect()
         fitted = QRectF(fitted_image_rect(self._image.size(), canvas.size().toSize()))
         fitted.translate(canvas.topLeft())
@@ -383,7 +400,10 @@ class ObjectSelectionWindow(QWidget):
 
     def _image_rect(self) -> QRectF:
         return zoomed_image_rect(
-            self._viewport_rect(), self._image.size(), self._zoom, self._view_center
+            self._fitted_viewport_rect(),
+            self._image.size(),
+            self._zoom,
+            self._view_center,
         )
 
     def _view_to_image(self, position: QPointF) -> tuple[float, float] | None:
@@ -410,12 +430,7 @@ class ObjectSelectionWindow(QWidget):
 
     def _clamp_view_center(self, center: QPointF) -> QPointF:
         viewport = self._viewport_rect()
-        target = zoomed_image_rect(
-            viewport,
-            self._image.size(),
-            self._zoom,
-            QPointF(self._image.width() / 2, self._image.height() / 2),
-        )
+        target = self._image_rect()
         scale = target.width() / self._image.width()
 
         def clamp_axis(value: float, image_extent: int, canvas_extent: float) -> float:

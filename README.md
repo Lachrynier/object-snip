@@ -43,8 +43,8 @@ commands. Run `just` to list them.
 | Command | Purpose |
 |---|---|
 | `just setup` | Install or update the locked development environment |
-| `just model` | Download and verify the official SAM 2.1 Tiny checkpoint |
-| `just model small` | Download and verify another SAM 2.1 model size |
+| `just model` | Download and verify the official SAM 2.1 Small checkpoint |
+| `just model tiny` | Download and verify another SAM 2.1 model size |
 | `just run` | Start the system-tray application |
 | `just debug` | Start with capture artifacts saved under `.artifacts/captures` |
 | `just test` | Run the test suite |

@@ -27,7 +27,7 @@ def test_sam2_is_the_default_backend() -> None:
     arguments = parse_arguments([])
 
     assert arguments.segmenter == "sam2"
-    assert arguments.model == "tiny"
+    assert arguments.model == "small"
     assert arguments.sam2_checkpoint == DEFAULT_SAM2_CHECKPOINT
     assert arguments.sam2_device == "auto"
 

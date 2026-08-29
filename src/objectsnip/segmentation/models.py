@@ -46,5 +46,5 @@ SAM2_MODELS = {
     ),
 }
 
-DEFAULT_SAM2_MODEL = "tiny"
+DEFAULT_SAM2_MODEL = "small"
 SAM2_MODEL_NAMES = tuple(SAM2_MODELS)

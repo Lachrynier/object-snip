@@ -4,6 +4,7 @@ from objectsnip.ui.selection_window import (
     fitted_image_rect,
     view_to_image_point,
     zoomed_image_rect,
+    zoomed_viewport_rect,
 )
 
 
@@ -56,3 +57,21 @@ def test_fitted_viewport_remains_centered_inside_larger_canvas() -> None:
     fitted.translate(canvas.topLeft())
 
     assert fitted == QRect(0, 115, 800, 450)
+
+
+def test_zoomed_viewport_starts_at_centered_fitted_bounds() -> None:
+    canvas = QRectF(0, 40, 800, 600)
+
+    viewport = zoomed_viewport_rect(canvas, QSize(1600, 900), 1)
+
+    assert viewport == QRectF(0, 115, 800, 450)
+
+
+def test_zoomed_viewport_expands_until_it_fills_canvas() -> None:
+    canvas = QRectF(0, 40, 800, 600)
+
+    expanding = zoomed_viewport_rect(canvas, QSize(1600, 900), 1.25)
+    full = zoomed_viewport_rect(canvas, QSize(1600, 900), 2)
+
+    assert expanding == QRectF(0, 58.75, 800, 562.5)
+    assert full == canvas
