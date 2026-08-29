@@ -26,10 +26,14 @@ uv run objectsnip
 Choose **Capture region** from the tray menu (or double-click its icon), draw a
 rectangle, adjust it by dragging its interior, edges, or corners, then choose
 **Lock region**. Locking opens the object-selection workspace and sends the crop
-to the selected SAM 2.1 Hiera model on a background thread. The image remains visible beneath
-the preparation state until its reusable embedding is ready. See
+to the selected SAM 2.1 Hiera model on a background thread. The image remains
+visible beneath the preparation state until its reusable embedding is ready. See
 [`docs/SAM2.md`](docs/SAM2.md) for setup, runtime options, and the backend
 contract.
+
+Keep the locked context region reasonably close to square when practical. SAM
+resizes every input directly to `1024 × 1024` during preprocessing, so extremely
+wide or tall crops are distorted and give the object fewer effective pixels.
 
 ## Project commands
 

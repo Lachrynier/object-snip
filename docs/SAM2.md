@@ -144,10 +144,12 @@ predictor while removing PyTorch tensors from the boundary:
   `candidates × 256 × 256`.
 
 For an ambiguous single click, multimask mode normally returns three candidates.
-The caller may initially choose the highest score. A selected candidate's logits
-can be passed back as `mask_input` during refinement, avoiding loss of SAM's
-low-resolution mask information. The logits are not probabilities and should
-not be displayed directly.
+ObjectSnip score-ranks them, initially displays the highest-scoring candidate,
+and lets the user choose among them in the toolbar. On the next prompt edit, the
+active candidate's logits are passed back as `mask_input`, preserving the user's
+chosen mask during refinement. The logits are not probabilities and are not
+displayed directly. **Reset prompts** removes all points and clears both the
+visible mask and refinement state.
 
 ## Device and numerical behavior
 

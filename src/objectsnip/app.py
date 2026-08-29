@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import QObject, Slot
 from PySide6.QtGui import QAction, QGuiApplication, QImage, QScreen
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QStyle, QSystemTrayIcon
@@ -29,6 +30,28 @@ from objectsnip.ui.overlay import CaptureOverlay
 from objectsnip.ui.selection_window import ObjectSelectionWindow
 
 
+def rank_segmentation_result(result: SegmentationResult) -> SegmentationResult:
+    order = np.argsort(-result.scores, stable=True)
+    return SegmentationResult(
+        masks=np.ascontiguousarray(result.masks[order]),
+        scores=np.ascontiguousarray(result.scores[order]),
+        low_resolution_logits=np.ascontiguousarray(result.low_resolution_logits[order]),
+    )
+
+
+def refinement_mask_input(
+    result: SegmentationResult | None, active_candidate: int
+) -> np.ndarray | None:
+    if result is None:
+        return None
+    if not 0 <= active_candidate < len(result.scores):
+        raise IndexError("active candidate is out of range")
+    return np.ascontiguousarray(
+        result.low_resolution_logits[active_candidate : active_candidate + 1],
+        dtype=np.float32,
+    )
+
+
 class ObjectSnipApplication(QObject):
     def __init__(
         self,
@@ -44,6 +67,8 @@ class ObjectSnipApplication(QObject):
         self._encoding_request: int | None = None
         self._prediction_request: int | None = None
         self._image_encoding: ImageEncoding | None = None
+        self._segmentation_result: SegmentationResult | None = None
+        self._active_candidate = 0
         self._capture_screen: QScreen | None = None
         self._debug_writer = (
             DebugCaptureWriter(debug_capture_directory)
@@ -170,6 +195,7 @@ class ObjectSnipApplication(QObject):
         selection_window = ObjectSelectionWindow(crop)
         selection_window.retry_requested.connect(self._retry_image_encoding)
         selection_window.prompts_changed.connect(self._prompts_changed)
+        selection_window.candidate_selected.connect(self._candidate_selected)
         selection_window.destroyed.connect(
             lambda _object=None, window=selection_window: (
                 self._selection_window_destroyed(window)
@@ -178,6 +204,8 @@ class ObjectSnipApplication(QObject):
         self._selection_window = selection_window
         self._selection_image = image_data_from_qimage(crop)
         self._image_encoding = None
+        self._segmentation_result = None
+        self._active_candidate = 0
         self._start_image_encoding()
         selection_window.show()
         selection_window.raise_()
@@ -212,11 +240,16 @@ class ObjectSnipApplication(QObject):
         if not points:
             self._encoding.invalidate()
             self._prediction_request = None
-            self._selection_window.clear_mask()
+            self._segmentation_result = None
+            self._active_candidate = 0
+            self._selection_window.clear_candidates()
             return
+        mask_input = refinement_mask_input(
+            self._segmentation_result, self._active_candidate
+        )
         self._selection_window.show_predicting()
         self._prediction_request = self._encoding.predict(
-            PredictionRequest(points=points)
+            PredictionRequest(points=points, mask_input=mask_input)
         )
 
     @Slot(int, object)
@@ -228,8 +261,18 @@ class ObjectSnipApplication(QObject):
                 "the segmentation backend returned an invalid result"
             )
             return
-        best = int(result.scores.argmax())
-        self._selection_window.set_mask(result.masks[best])
+        ranked = rank_segmentation_result(result)
+        self._segmentation_result = ranked
+        self._active_candidate = 0
+        self._selection_window.set_candidates(ranked.masks, ranked.scores)
+
+    @Slot(int)
+    def _candidate_selected(self, index: int) -> None:
+        if self._segmentation_result is None:
+            return
+        if not 0 <= index < len(self._segmentation_result.scores):
+            return
+        self._active_candidate = index
 
     @Slot(int, str)
     def _mask_prediction_failed(self, request: int, message: str) -> None:
@@ -250,6 +293,8 @@ class ObjectSnipApplication(QObject):
             self._encoding_request = None
             self._prediction_request = None
             self._image_encoding = None
+            self._segmentation_result = None
+            self._active_candidate = 0
 
     @Slot()
     def _overlay_destroyed(self) -> None:

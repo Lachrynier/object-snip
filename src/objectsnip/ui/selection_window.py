@@ -74,6 +74,7 @@ def zoomed_image_rect(
 class ObjectSelectionWindow(QWidget):
     retry_requested = Signal()
     prompts_changed = Signal(object)
+    candidate_selected = Signal(int)
     DEFAULT_SIZE = QSize(960, 640)
     MARKER_RADIUS = 7
     MIN_ZOOM = 1.0
@@ -84,6 +85,8 @@ class ObjectSelectionWindow(QWidget):
         super().__init__()
         self._image = image.copy()
         self._mask_image: QImage | None = None
+        self._candidate_masks: tuple[NDArray[np.bool_], ...] = ()
+        self._active_candidate = 0
         self._points: list[PointPrompt] = []
         self._point_mode = PointLabel.INCLUDE
         self._zoom = self.MIN_ZOOM
@@ -111,6 +114,25 @@ class ObjectSelectionWindow(QWidget):
             lambda: self._set_point_mode(PointLabel.EXCLUDE)
         )
         self._toolbar.addActions((self._include_action, self._exclude_action))
+        self._toolbar.addSeparator()
+        self._reset_prompts_action = QAction("Reset prompts", self)
+        self._reset_prompts_action.triggered.connect(self._reset_prompts)
+        self._toolbar.addAction(self._reset_prompts_action)
+        self._toolbar.addSeparator()
+        self._candidate_group = QActionGroup(self)
+        self._candidate_group.setExclusive(True)
+        self._candidate_actions: list[QAction] = []
+        for index in range(3):
+            action = QAction(f"Mask {index + 1}", self._candidate_group)
+            action.setCheckable(True)
+            action.setEnabled(False)
+            action.triggered.connect(
+                lambda _checked=False, candidate=index: self._select_candidate(
+                    candidate
+                )
+            )
+            self._candidate_actions.append(action)
+            self._toolbar.addAction(action)
         self._toolbar.addSeparator()
         self._reset_zoom_action = QAction("Reset zoom", self)
         self._reset_zoom_action.triggered.connect(self._reset_zoom)
@@ -213,6 +235,50 @@ class ObjectSelectionWindow(QWidget):
     def clear_mask(self) -> None:
         self._mask_image = None
         self._status_overlay.hide()
+        self.update()
+
+    def set_candidates(
+        self,
+        masks: NDArray[np.bool_],
+        scores: NDArray[np.float32],
+    ) -> None:
+        if masks.ndim != 3 or masks.shape[0] != len(scores):
+            raise ValueError("candidate masks and scores must have matching counts")
+        self._candidate_masks = tuple(masks[index] for index in range(len(scores)))
+        self._active_candidate = 0
+        for index, action in enumerate(self._candidate_actions):
+            available = index < len(scores)
+            action.setEnabled(available)
+            action.setVisible(available)
+            action.setChecked(index == 0 and available)
+            if available:
+                action.setText(f"Mask {index + 1} ({float(scores[index]):.3f})")
+        if self._candidate_masks:
+            self.set_mask(self._candidate_masks[0])
+        else:
+            self.clear_mask()
+
+    def clear_candidates(self) -> None:
+        self._candidate_masks = ()
+        self._active_candidate = 0
+        for index, action in enumerate(self._candidate_actions):
+            action.setText(f"Mask {index + 1}")
+            action.setChecked(False)
+            action.setEnabled(False)
+            action.setVisible(True)
+        self.clear_mask()
+
+    def _select_candidate(self, index: int) -> None:
+        if not 0 <= index < len(self._candidate_masks):
+            return
+        self._active_candidate = index
+        self.set_mask(self._candidate_masks[index])
+        self.candidate_selected.emit(index)
+
+    def _reset_prompts(self) -> None:
+        self._points.clear()
+        self.clear_candidates()
+        self.prompts_changed.emit(())
         self.update()
 
     @property

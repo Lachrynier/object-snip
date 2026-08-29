@@ -90,10 +90,10 @@ painted item.
 
 ## Candidate masks
 
-When the backend returns multiple candidates, preserve them in backend-provided
-order with scores where meaningful. Display the first candidate initially.
-Candidate cycling is included in the sandbox for evaluation but is not yet an
-accepted core interaction.
+When the backend returns multiple candidates, rank them by score and display the
+highest-scoring candidate initially. Toolbar controls select any returned mask.
+The active candidate's low-resolution logits are passed into the next prediction
+as refinement state.
 
 Changing a candidate does not require a new model prediction.
 
@@ -118,8 +118,7 @@ a product requirement.
 - [x] Each committed prompt edit requests prediction for the new revision.
 - [x] A backend-neutral segmentation result can contain one or more masks.
 - [x] The highest-scoring mask is displayed transparently over the image.
-- [ ] Candidate cycling works when a backend provides multiple candidates, or
-      the experiment is explicitly removed after evaluation.
+- [x] Candidate selection works when a backend provides multiple candidates.
 - [ ] The UI stays responsive while prediction is running.
 - [x] Out-of-order prediction completion cannot display a stale result.
 - [x] View/image coordinate transformations have deterministic tests.
