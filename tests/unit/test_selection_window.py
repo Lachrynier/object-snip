@@ -48,3 +48,11 @@ def test_zoomed_image_rect_uses_image_coordinate_as_view_center() -> None:
         100.0,
         50.0,
     )
+
+
+def test_fitted_viewport_remains_centered_inside_larger_canvas() -> None:
+    canvas = QRect(0, 40, 800, 600)
+    fitted = fitted_image_rect(QSize(1600, 900), canvas.size())
+    fitted.translate(canvas.topLeft())
+
+    assert fitted == QRect(0, 115, 800, 450)

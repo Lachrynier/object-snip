@@ -58,10 +58,11 @@ def zoomed_image_rect(
 ) -> QRectF:
     if canvas.isEmpty() or image_size.isEmpty():
         return QRectF()
-    fitted = image_size.scaled(
-        canvas.size().toSize(), Qt.AspectRatioMode.KeepAspectRatio
+    scale = max(
+        canvas.width() / image_size.width(),
+        canvas.height() / image_size.height(),
     )
-    scale = fitted.width() / image_size.width() * zoom
+    scale *= zoom
     return QRectF(
         canvas.center().x() - center.x() * scale,
         canvas.center().y() - center.y() * scale,
@@ -229,12 +230,20 @@ class ObjectSelectionWindow(QWidget):
             self.height() - self._toolbar.height(),
         )
 
+    def _viewport_rect(self) -> QRectF:
+        canvas = self._canvas_rect()
+        fitted = QRectF(fitted_image_rect(self._image.size(), canvas.size().toSize()))
+        fitted.translate(canvas.topLeft())
+        return fitted
+
     def _image_rect(self) -> QRectF:
         return zoomed_image_rect(
-            self._canvas_rect(), self._image.size(), self._zoom, self._view_center
+            self._viewport_rect(), self._image.size(), self._zoom, self._view_center
         )
 
     def _view_to_image(self, position: QPointF) -> tuple[float, float] | None:
+        if not self._viewport_rect().contains(position):
+            return None
         return view_to_image_point(position, self._image_rect(), self._image.size())
 
     def _image_to_view(self, point: PointPrompt) -> QPointF:
@@ -255,9 +264,9 @@ class ObjectSelectionWindow(QWidget):
         )
 
     def _clamp_view_center(self, center: QPointF) -> QPointF:
-        canvas = self._canvas_rect()
+        viewport = self._viewport_rect()
         target = zoomed_image_rect(
-            canvas,
+            viewport,
             self._image.size(),
             self._zoom,
             QPointF(self._image.width() / 2, self._image.height() / 2),
@@ -275,8 +284,8 @@ class ObjectSelectionWindow(QWidget):
             return max(lower, min(upper, value))
 
         return QPointF(
-            clamp_axis(center.x(), self._image.width(), canvas.width()),
-            clamp_axis(center.y(), self._image.height(), canvas.height()),
+            clamp_axis(center.x(), self._image.width(), viewport.width()),
+            clamp_axis(center.y(), self._image.height(), viewport.height()),
         )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -288,7 +297,7 @@ class ObjectSelectionWindow(QWidget):
             event.button() is Qt.MouseButton.LeftButton and self._pan_action.isChecked()
         )
         if starts_pan:
-            if self._image_rect().contains(position):
+            if self._viewport_rect().contains(position):
                 self._pan_origin = position
                 self._pan_center_origin = QPointF(self._view_center)
                 self._pan_button = event.button()
@@ -352,15 +361,15 @@ class ObjectSelectionWindow(QWidget):
         if self._zoom == previous_zoom:
             event.accept()
             return
-        canvas_center = self._canvas_rect().center()
-        fitted = self._image.size().scaled(
-            self._canvas_rect().size().toSize(), Qt.AspectRatioMode.KeepAspectRatio
-        )
-        scale = fitted.width() / self._image.width() * self._zoom
+        viewport = self._viewport_rect()
+        viewport_center = viewport.center()
+        scale = self._image_rect().width() / self._image.width()
         self._view_center = self._clamp_view_center(
             QPointF(
-                image_position[0] - (event.position().x() - canvas_center.x()) / scale,
-                image_position[1] - (event.position().y() - canvas_center.y()) / scale,
+                image_position[0]
+                - (event.position().x() - viewport_center.x()) / scale,
+                image_position[1]
+                - (event.position().y() - viewport_center.y()) / scale,
             )
         )
         if self._pan_origin is not None:
@@ -373,6 +382,7 @@ class ObjectSelectionWindow(QWidget):
         del event
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#202124"))
+        painter.setClipRect(self._viewport_rect())
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         target = self._image_rect()
         painter.drawImage(target, self._image)
