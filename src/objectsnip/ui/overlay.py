@@ -11,6 +11,7 @@ from PySide6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
+    QRegion,
 )
 from PySide6.QtWidgets import QPushButton, QWidget
 
@@ -100,19 +101,17 @@ class CaptureOverlay(QWidget):
         del event
         painter = QPainter(self)
         painter.drawImage(self.rect(), self._screenshot)
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 110))
 
         if self._draft is None or not self._draft.is_valid:
+            painter.fillRect(self.rect(), QColor(0, 0, 0, 110))
             return
 
         view_rect = self._to_view_rect(self._draft)
-        source_rect = QRect(
-            self._draft.left,
-            self._draft.top,
-            self._draft.width,
-            self._draft.height,
-        )
-        painter.drawImage(view_rect, self._screenshot, source_rect)
+        outside_selection = QRegion(self.rect()).subtracted(QRegion(view_rect))
+        painter.save()
+        painter.setClipRegion(outside_selection)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 110))
+        painter.restore()
         painter.setPen(QPen(QColor("#55c2ff"), 2))
         painter.drawRect(view_rect)
         if handles_are_visible(self._draft, self._press_point is not None):
