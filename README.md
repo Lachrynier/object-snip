@@ -15,15 +15,16 @@ The workflow is:
 2. Draw and adjust a region around the object, then choose **Lock region**.
 3. Add a positive point to include part of the object or a negative point to
    exclude an area.
-4. Review the generated masks and choose the best one. The chosen mask is used as the starting point for the next adjustment.
+4. Review the generated masks and choose the best one. The chosen mask is used
+   as the starting point for the next adjustment.
 5. Repeat the previous two steps until the selection is right.
-6. Export to clipboard or as a file
+6. Copy the transparent cutout to the clipboard or save it as a PNG.
 
 > [!IMPORTANT]
-> ObjectSnip is still in early development. Screen capture and interactive
-> object selection work, but copying the transparent result to the clipboard
-> has not been implemented yet. Linux is the currently supported development
-> platform, with support for other operating systems planned later.
+> ObjectSnip now provides the complete capture, selection, refinement, and
+> export workflow. It has only been tested on Fedora with a Wayland session;
+> other Linux distributions, desktop environments, display servers, and
+> operating systems are currently unverified.
 
 ## Examples
 
@@ -50,13 +51,17 @@ screenshot through a separate photo editor or uploading it to a web service.
 - **Pan** drag or middle-button drag: move a zoomed image.
 - **Reset prompts**: remove all points and generated masks.
 - **Reset zoom**: return to the centered fit-to-window view.
+- **Copy object**: copy the selected object as a tightly cropped image with a
+  transparent background.
+- **Save object as PNG**: choose a destination and save the same transparent
+  cutout as a PNG file.
 
 
 ## Requirements
 
 The current development build requires:
 
-- a Linux desktop with a system tray;
+- Fedora with Wayland and a system tray (the only configuration tested so far);
 - Python 3.12 or newer;
 - [`uv`](https://docs.astral.sh/uv/);
 - enough memory and storage to run the selected SAM 2.1 model.
@@ -66,7 +71,8 @@ is `small`.
 
 On Wayland, screen capture and the global shortcut use XDG desktop portals. The
 desktop may ask for permission or allow you to choose a different shortcut.
-Other Qt platforms currently use direct screen capture.
+The code includes a direct screen-capture path for other Qt platforms, but it
+has not yet been validated outside the Fedora Wayland setup.
 
 ## Install and run
 

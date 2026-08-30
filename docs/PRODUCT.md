@@ -1,6 +1,6 @@
 # Product
 
-**Status:** Draft  
+**Status:** Core workflow implemented
 **Working name:** ObjectSnip
 
 This document owns the stable product intent and scope. Exact interactions
@@ -10,12 +10,13 @@ or decision records.
 ## Purpose
 
 ObjectSnip lets a desktop user select a visual object directly from a frozen
-screenshot and copy it as a transparent image.
+screenshot and export it as a transparent image through the clipboard or a PNG
+file.
 
 The intended common path is:
 
 ```text
-shortcut → choose context region → lock → select object → confirm → paste
+shortcut → choose context region → lock → select object → copy or save
 ```
 
 Traditional screenshot tools select rectangles. ObjectSnip treats the visual
@@ -64,7 +65,7 @@ These principles are **Draft** until individually accepted.
 
 The first useful product supports:
 
-- a Linux desktop workflow;
+- a Fedora Wayland desktop workflow, currently the only manually tested setup;
 - a resident system-tray application invoked with `Super+Shift+O` initially;
 - a frozen screenshot of one screen;
 - a movable and resizable rectangular context region that the user explicitly
@@ -72,6 +73,7 @@ The first useful product supports:
 - positive and negative point prompts;
 - editable prompts and updated mask proposals;
 - transparent clipboard output;
+- transparent PNG file output;
 - cancellation without output.
 
 This is a product boundary, not the active implementation milestone. See
@@ -96,10 +98,10 @@ they are promoted into a live owning document.
 
 ## Success criterion
 
-The project succeeds when a user can install it, invoke it over any visible
-object, select or refine that object without frustration, confirm, and paste a
-clean transparent cutout faster than using a screenshot plus a separate
-background-removal workflow.
+The core product workflow is implemented: a user can invoke ObjectSnip over a
+visible object, select or refine it, and copy or save a clean transparent
+cutout. Broader platform validation and distribution work remain before this
+can be considered a generally supported release.
 
 ## Product heuristic
 

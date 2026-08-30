@@ -1,6 +1,6 @@
 # Architecture
 
-**Status:** Draft
+**Status:** Implemented, with platform validation gaps
 
 This document owns system boundaries, dependency direction, cross-cutting
 technical rules, and architecture-level quality requirements. User-visible
@@ -15,13 +15,18 @@ ObjectSnipApplication
     │       └── CaptureOverlay
     │               └── committed context crop
     └── ObjectSelectionWindow
-            └── ImageEncodingService
-                    └── SAM 2.1 or fake segmenter
+            ├── ImageEncodingService
+            │       └── SAM 2.1 or fake segmenter
+            └── cutout builder
+                    ├── system clipboard
+                    └── PNG file writer
 ```
 
 `ObjectSnipApplication` currently coordinates the interaction and asynchronous
 request lifecycle. Capture geometry is model-independent, and segmentation is
-hidden behind an application-owned protocol. Export has not been implemented.
+hidden behind an application-owned protocol. Export applies the active mask in
+backend-neutral code, tightly crops the RGBA result, and sends the resulting
+image to either the Qt clipboard or PNG writer.
 
 ## Dependency direction
 
@@ -54,6 +59,9 @@ src/objectsnip/
 ├── debug_capture.py
 ├── domain/
 │   └── geometry.py
+├── export/
+│   ├── cutout.py
+│   └── file.py
 ├── capture/
 │   ├── crop.py
 │   ├── portal.py
@@ -134,6 +142,21 @@ Cancellation is a normal portal outcome and does not produce an application
 error. Missing services, malformed responses, and unreadable returned images
 are errors. Other Qt platforms currently use direct `QScreen` capture, with a
 uniform-image guard to reject unusable buffers such as a black XWayland root.
+
+The end-to-end application has so far been manually tested only on Fedora under
+Wayland. Other distributions, desktop environments, X11, and non-Linux Qt
+platforms should be treated as implemented code paths without validation, not
+as supported configurations.
+
+## Export boundary
+
+The export transformation consumes backend-neutral RGB image data and a boolean
+mask. It rejects empty or dimensionally incompatible masks, applies binary
+alpha, and returns the smallest RGBA rectangle containing the selected pixels.
+This transformation is independent of Qt and the segmentation backend. The
+application converts the result to a `QImage`, then either places it on the
+clipboard or passes it to the PNG writer. Export failures leave the selection
+window open so the user can retry.
 
 ## Segmentation boundary
 
@@ -235,7 +258,7 @@ of these invariants should include a decision record.
 - interactive mask quality and latency on consumer hardware;
 - X11 versus Wayland capture and shortcut integration;
 - high-DPI and multi-monitor coordinate correctness;
-- transparent clipboard interoperability;
+- clipboard interoperability outside the tested Fedora Wayland environment;
 - packaging model code and weights without excessive complexity.
 
 The roadmap separates these risks so they are not debugged simultaneously.

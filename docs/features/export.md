@@ -1,6 +1,6 @@
 # Export
 
-**Status:** Draft  
+**Status:** Implemented
 **First milestone:** 0.3
 
 This document owns confirmation, transparent cutout construction, clipboard
@@ -14,19 +14,23 @@ into another application with minimal friction.
 ## Primary user flow
 
 1. User has an active non-empty selection.
-2. User presses `Enter`.
+2. User chooses **Copy object**.
 3. ObjectSnip constructs an RGBA cutout from screenshot pixels and mask alpha.
 4. The cutout is placed on the system clipboard.
-5. The capture overlay closes only after successful clipboard output.
+5. ObjectSnip confirms the copy and keeps the selection open for further use.
+
+The user can instead choose **Save object as PNG**, select a destination, and
+save the same transparent cutout to a file.
 
 ## Behavior
 
 | Input or event | Intended result | Milestone |
 |---|---|---|
-| `Enter` with valid mask | Copy transparent, tightly bounded cutout and finish capture | 0.3 |
-| `Enter` without valid mask | Keep session open and give concise feedback | 0.3 |
+| **Copy object** with valid mask | Copy transparent, tightly bounded cutout and show confirmation | 0.3 |
+| Export without valid mask | Export actions remain unavailable | 0.3 |
 | Clipboard failure | Keep recoverable session state and show concise error | 0.3 |
-| `Ctrl+S` with valid mask | Prompt for a path and save transparent PNG | 0.3, optional Draft |
+| **Save object as PNG** with valid mask | Prompt for a path, save a transparent PNG, and show its location | 0.3 |
+| File-save failure | Keep recoverable session state and show concise error | 0.3 |
 
 `Esc` cancellation belongs to [`capture.md`](capture.md), not this document.
 
@@ -60,23 +64,23 @@ Clipboard content changes only after explicit user confirmation.
 
 ## 0.3 acceptance criteria
 
-- [ ] Mask application produces correct RGBA values in unit tests.
-- [ ] Output is cropped to the non-transparent bounds.
-- [ ] Edge-touching and single-pixel masks are handled correctly.
-- [ ] Empty masks do not overwrite the clipboard.
-- [ ] `Enter` copies an image with transparency through the platform adapter.
-- [ ] A successful copy closes the overlay and returns the application to idle.
-- [ ] Failure preserves a recoverable session and presents concise feedback.
-- [ ] Export transformation is usable without Qt or a running model.
-- [ ] Clipboard transparency is manually verified in representative destination
-      applications on the supported environment.
+- [x] Mask application produces correct RGBA values in unit tests.
+- [x] Output is cropped to the non-transparent bounds.
+- [x] Edge-touching and single-pixel masks are handled correctly.
+- [x] Empty masks do not overwrite the clipboard.
+- [x] The copy action places an image with transparency on the clipboard.
+- [x] The save action writes a transparent PNG to a user-selected path.
+- [x] Successful export provides confirmation and preserves the active session.
+- [x] Failure preserves a recoverable session and presents concise feedback.
+- [x] Export transformation is usable without Qt or a running model.
+- [x] The complete export workflow has been manually tested on Fedora Wayland.
 
 ## Open decisions
 
-- Is save-to-PNG required for 0.3 or should clipboard reliability come first?
-- Should successful file save also close the overlay?
 - Does binary alpha look adequate for hair and anti-aliased screen objects?
 - Should later output add configurable padding or preserve original placement?
+- Which clipboard destination applications and additional desktop environments
+  should form the recorded interoperability test set?
 
 ## Deferred
 
