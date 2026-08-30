@@ -34,25 +34,27 @@ offers Retry. Closing or replacing the workspace invalidates pending results.
 
 ## Behavior
 
-All entries are Draft until reviewed.
+“Implemented” describes the current code. Planned entries remain Draft product
+behavior and should not be presented as available controls.
 
-| Input or event | Intended result | Milestone |
+| Input or event | Intended result | Status |
 |---|---|---|
-| Receive locked context crop | Reset prompt/history state and encode the crop | 0.2 |
-| Left click in Include mode | Add a positive point at the corresponding crop position | 0.2 |
-| Left click in Exclude mode | Add a negative point at the corresponding crop position | 0.2 |
-| Select and drag a point | Move it visually; request updated predictions without blocking input | 0.2 |
-| `Delete` or `Backspace` | Remove the selected prompt | 0.2 |
-| `1` | Activate Include mode | 0.2 |
-| `2` | Activate Exclude mode | 0.2 |
-| Mouse wheel over image | Zoom toward or away from the image point under the cursor | 0.2 |
-| Drag with Pan tool active | Move the zoomed image within the viewport | 0.2 |
-| Middle-button drag | Temporarily pan without changing the active toolbar tool | 0.2 |
-| Reset zoom toolbar action | Return to the centered fit-to-window view | 0.2 |
-| `Tab` / `Shift+Tab` | Select next / previous mask candidate when available | 0.2, optional pending evaluation |
-| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo a session mutation | 0.3 unless promoted |
-| Drag in Box mode | Create or replace an editable approximate box prompt | 0.3, Draft |
-| `3` | Activate Box mode | 0.3, Draft |
+| Receive locked context crop | Reset prompt state and encode the crop | Implemented |
+| Left click in Positive mode | Add a positive point at the corresponding crop position | Implemented |
+| Left click in Negative mode | Add a negative point at the corresponding crop position | Implemented |
+| Click an existing marker | Remove that prompt | Implemented |
+| Select and drag a point | Move it visually and request updated predictions | Planned for 0.2 |
+| `Delete` or `Backspace` | Remove the selected prompt | Planned for 0.2 |
+| `1` / `2` | Activate Positive / Negative mode | Planned for 0.2 |
+| Mouse wheel over image | Zoom toward or away from the image point under the cursor | Implemented |
+| Drag with Pan active | Move the zoomed image within the viewport | Implemented |
+| Middle-button drag | Temporarily pan without changing the toolbar tool | Implemented |
+| Reset zoom toolbar action | Return to the centered fit-to-window view | Implemented |
+| Mask toolbar action | Display the selected candidate | Implemented |
+| `Tab` / `Shift+Tab` | Select next / previous mask candidate | Optional Draft |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | Undo / redo a session mutation | Planned for 0.3 |
+| Drag in Box mode | Create or replace an editable approximate box prompt | Planned for 0.3 |
+| `3` | Activate Box mode | Planned for 0.3 |
 
 No output shortcut is defined here. Confirmation, copy, and save are owned by
 `export.md`; overlay cancellation is owned by `capture.md`.
@@ -63,8 +65,8 @@ No output shortcut is defined here. Confirmation, copy, and save are owned by
 - Exclude means “this position does not belong to the desired object.”
 - Prompts persist until explicitly edited, deleted, undone, or the image/session
   is replaced.
-- A point is visibly typed as include or exclude, selectable, movable, and
-  deletable.
+- A point is visibly typed as positive or negative and can be removed by
+  clicking its marker. Selection and dragging remain planned.
 - Prompt positions are stored in image coordinates, independent of view zoom or
   Qt widget coordinates.
 - Zooming keeps the image point beneath the cursor stationary in the viewport;
@@ -115,8 +117,8 @@ a product requirement.
 - [x] A locked context crop can be encoded and displayed for selection through
       the real SAM 2.1 backend or deterministic fake.
 - [x] Include and exclude points can be added and are visually distinct.
-- [ ] Existing points can be selected and moved; points can be deleted by clicking
-      their marker.
+- [x] Existing points can be deleted by clicking their marker.
+- [ ] Existing points can be selected and moved.
 - [x] Each committed prompt edit requests prediction for the new revision.
 - [x] A backend-neutral segmentation result can contain one or more masks.
 - [x] The highest-scoring mask is displayed transparently over the image.

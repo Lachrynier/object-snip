@@ -102,7 +102,7 @@ later prompts on that crop. It returns only backend-neutral metadata:
 ImageEncoding(
     image_width,
     image_height,
-    embedding_shape,  # Tiny currently returns 1 × 256 × 64 × 64
+    embedding_shape,  # Hiera models currently return 1 × 256 × 64 × 64
     device,           # cuda, mps, cpu, or fake
 )
 ```
@@ -163,10 +163,10 @@ for GPU inference. When CUDA is unavailable, automatic selection uses CPU.
 
 ## Current scope
 
-The real backend currently loads and encodes locked crops, and its prediction
-contract is integration-tested with point prompts. The selection window does
-not yet collect prompts or render returned masks; those are the next 0.2 UI and
-session slices.
+The real backend loads and encodes locked crops, and its prediction contract is
+integration-tested with point prompts. The selection window collects positive
+and negative point prompts, displays ranked masks, lets the user select a
+candidate, and reuses that candidate's logits for refinement.
 
 Run the opt-in real-model contract test with:
 
@@ -176,3 +176,5 @@ OBJECTSNIP_RUN_SAM2_TESTS=1 uv run pytest tests/integration/test_sam2_backend.py
 
 Normal unit tests exercise the same contract through `FakeImageSegmenter` and
 do not require weights, PyTorch device initialization, or network access.
+General development setup and project commands live in
+[`DEVELOPMENT.md`](DEVELOPMENT.md).

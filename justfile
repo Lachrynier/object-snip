@@ -11,8 +11,8 @@ model model="small":
     uv run python scripts/download_sam2.py --model {{model}}
 
 # Start the system-tray application.
-run:
-    uv run objectsnip
+run *args:
+    uv run objectsnip {{args}}
 
 # Start with source and region screenshots saved under .artifacts/captures.
 debug:

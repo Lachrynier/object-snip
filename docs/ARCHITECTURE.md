@@ -9,74 +9,77 @@ behavior belongs to feature specifications.
 ## System shape
 
 ```text
-application lifecycle
-        │
-        ├── tray + shortcut adapter
-        │
-        ├── capture adapter ────── frozen screenshot + display context
-        │                                      │
-        └──────────────────────────────────────▼
-                                  capture/session domain
-                                    │          │
-                          lock crop │          │ state
-                                    ▼          ▼
-                            segmentation      UI adapter
-                               adapter
-                                    │
-                                    └──────────► export logic/adapters
+ObjectSnipApplication
+    ├── tray and global-shortcut portal
+    ├── screenshot portal or direct screen capture
+    │       └── CaptureOverlay
+    │               └── committed context crop
+    └── ObjectSelectionWindow
+            └── ImageEncodingService
+                    └── SAM 2.1 or fake segmenter
 ```
 
-The session/domain layer represents an active interaction. UI, model, capture,
-and operating-system integrations are adapters around it.
+`ObjectSnipApplication` currently coordinates the interaction and asynchronous
+request lifecycle. Capture geometry is model-independent, and segmentation is
+hidden behind an application-owned protocol. Export has not been implemented.
 
-## Dependency rules
+## Dependency direction
 
 ```text
-UI ───────────────► domain/session ◄──────── segmentation adapter
-capture adapter ──► domain types
-export adapter ───► export/domain logic
-application ──────► all adapters for composition only
+capture UI ───────► geometry
+application ──────► capture, shortcuts, selection UI, segmentation service
+segmentation service ──────► application-owned segmentation protocol
+SAM and fake backends ─────► application-owned segmentation protocol
 ```
+
+The current design follows these rules:
 
 - Domain types do not depend on Qt, PyTorch, a model package, or OS services.
 - Qt-specific types remain in UI and platform adapters.
 - Backend-specific tensors remain inside a segmentation backend.
 - Screenshot/model/UI coordinates cross boundaries through explicit value
   types and transformations.
-- Application composition may know concrete adapters but must not absorb their
-  behavior.
+- `app.py` owns composition and coordination, including candidate ranking and
+  refinement state. If that behavior grows, it should move into a testable
+  session component rather than continuing to expand application wiring.
 
-## Initial module strategy
+## Current module structure
 
-Begin with cohesive files and split them only when responsibilities change
-independently or navigation becomes difficult:
+The source tree is organized by integration boundary:
 
 ```text
 src/objectsnip/
 ├── __main__.py
 ├── app.py
+├── debug_capture.py
 ├── domain/
-│   ├── models.py
-│   └── session.py
+│   └── geometry.py
+├── capture/
+│   ├── crop.py
+│   ├── portal.py
+│   └── screen.py
 ├── segmentation/
 │   ├── interface.py
 │   ├── fake.py
-│   └── <first_backend>.py
-├── ui/
-│   ├── window.py
-│   └── canvas.py
-├── capture/
+│   ├── models.py
+│   ├── sam2.py
 │   └── service.py
-└── export/
-    └── cutout.py
+├── shortcuts/
+│   └── portal.py
+├── ui/
+│   ├── overlay.py
+│   └── selection_window.py
 ```
 
-This is a growth guide, not a requirement to create empty modules. Avoid one
-file per tiny UI tool until each has independent behavior worth isolating.
+`app.py` composes these pieces and currently owns the active capture and
+selection lifecycle. The selection widget owns prompt and viewport state while
+the application owns asynchronous request generations and candidate refinement
+state. A separate session layer should be introduced only when those state
+transitions need to be shared or tested independently.
 
 ## Core domain concepts
 
-An active capture session is authoritative for:
+The intended session model needs to represent:
 
 - the frozen screenshot and its display context;
 - the draft context rectangle and whether it is locked;
@@ -91,8 +94,8 @@ Prompts should use stable identities and immutable value semantics where
 practical. Candidate masks returned by backends use image coordinates and a
 backend-neutral representation.
 
-Widgets render session state and send user intent; widget objects are not the
-authoritative data store.
+This model is not yet a separate domain object. Today, state is split between
+`ObjectSnipApplication`, `CaptureOverlay`, and `ObjectSelectionWindow`.
 
 ## Capture-to-segmentation boundary
 
@@ -102,8 +105,8 @@ it must not invoke or repeatedly encode with the segmentation backend.
 
 Locking the rectangle commits an immutable context crop. The crop contains only
 the selected screenshot pixels and establishes crop-local coordinates. That
-committed crop—not the full frozen screenshot—is passed to `Segmenter.set_image`
-when model integration is introduced.
+committed crop—not the full frozen screenshot—is passed to
+`ImageSegmenter.set_image()`.
 
 ```text
 frozen screenshot + draft rectangle
@@ -147,7 +150,7 @@ The first implemented boundary converts Qt images into immutable RGB image
 data, preloads an encoder on a persistent single-worker executor, and encodes
 each committed crop away from the GUI event loop. Request generations prevent
 results for closed or replaced workspaces from becoming active. The official
-SAM 2.1 Hiera Tiny adapter is the default backend. A deterministic fake mirrors
+SAM 2.1 Hiera Small adapter is the default backend. A deterministic fake mirrors
 its request/result contract so most lifecycle and session tests need neither
 weights nor an accelerator. [`SAM2.md`](SAM2.md) owns the concrete contract.
 
@@ -160,8 +163,9 @@ session work should not require model weights, a GPU, or network access.
 
 ## Coordinates
 
-Coordinate conversion is a dedicated subsystem. Scaling arithmetic must not be
-scattered through event handlers.
+Capture geometry is centralized in `domain/geometry.py`; crop conversion lives
+in `capture/crop.py`; selection view/image transforms live alongside the custom
+selection widget. These conversions are covered by deterministic unit tests.
 
 The coordinate chain is explicit:
 
@@ -170,9 +174,9 @@ global desktop → screen-local → frozen-image → context-crop → model
 ```
 
 Potential spaces also include Qt logical and model-output coordinates.
-Transformations must cover high-DPI scaling, negative display offsets, crop
-origin translation, clamping, and round trips. The first milestone stops at
-context-crop coordinates, but its types must not conflate these spaces.
+Transformations must eventually cover high-DPI scaling, negative display
+offsets, crop-origin translation, clamping, and round trips. Multi-monitor and
+mixed-DPI behavior remain known gaps.
 
 ## Asynchronous prediction
 

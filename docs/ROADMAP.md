@@ -45,10 +45,11 @@ Feed the locked context crop into a common segmentation interface and implement
 the 0.2 scope in [`features/selection.md`](features/selection.md).
 
 The current slice provides the object-selection window, background image
-encoding lifecycle, real SAM 2.1 Hiera Tiny backend, contract-compatible fake,
-loading state, retry behavior, positive and negative point prompts, prompt
-removal, highest-scoring mask rendering, and stale-result rejection. Point
-movement and candidate cycling remain to be implemented.
+encoding lifecycle, real SAM 2.1 Hiera Small backend, contract-compatible fake,
+loading state, retry behavior, positive and negative point prompts, click-to-
+remove markers, zoom and pan controls, ranked mask rendering, toolbar candidate
+selection, refinement from the active candidate, and stale-result rejection.
+Point dragging and keyboard controls remain to be implemented.
 
 Purpose:
 
@@ -65,9 +66,9 @@ Connect the accepted capture and selection workflows to
 [`features/export.md`](features/export.md). The result should be useful enough
 for regular developer use on the primary Linux environment.
 
-Box prompts, candidate cycling, toolbar details, and save-to-file remain Draft
-choices in their owning feature documents; accepting them changes this
-milestone's exact scope.
+Box prompts, keyboard candidate cycling, clipboard confirmation, and
+save-to-file remain Draft choices in their owning feature documents; accepting
+them changes this milestone's exact scope.
 
 ## Later milestones
 
@@ -88,7 +89,7 @@ extending its owning feature specification and placing it in a milestone.
 
 ## Next product review
 
-Before implementation, the owner should review and either accept, revise, or
+Before expanding the active milestone, review and either accept, revise, or
 defer:
 
 1. the context-region open decisions in `features/capture.md`;

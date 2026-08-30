@@ -37,4 +37,4 @@ direction; add a superseding record and link both.
 ## Records
 
 - [`0001-python-pyside.md`](0001-python-pyside.md) — Python and PySide6 for the
-  initial desktop prototype (**Proposed**)
+  initial desktop prototype (**Accepted**)

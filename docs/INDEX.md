@@ -1,69 +1,33 @@
-# Documentation index
+# Documentation
 
-This page is the entry point for humans and coding agents. Read only the
-smallest relevant set below; follow links when a task crosses a boundary.
+The repository README is the product-facing entry point. The files in this
+directory explain development, product direction, implementation boundaries,
+and planned behavior.
 
-## Sources of truth
+## Start here
 
-| Subject | Authoritative source |
+| If you want to… | Read… |
 |---|---|
-| Product purpose, principles, scope, non-goals | [`PRODUCT.md`](PRODUCT.md) |
-| System boundaries, dependency rules, technical invariants | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Current milestone, sequencing, project status | [`ROADMAP.md`](ROADMAP.md) |
-| Selection interaction and prompts | [`features/selection.md`](features/selection.md) |
-| SAM 2 backend contract and setup | [`SAM2.md`](SAM2.md) |
-| Screen capture and frozen overlay | [`features/capture.md`](features/capture.md) |
-| Clipboard and file output | [`features/export.md`](features/export.md) |
-| Reasons for consequential technical choices | [`decisions/`](decisions/README.md) |
-| Implemented behavior | Tests and code |
+| Use or evaluate ObjectSnip | [`../README.md`](../README.md) |
+| Set up the project or run checks | [`DEVELOPMENT.md`](DEVELOPMENT.md) |
+| Understand the product and its boundaries | [`PRODUCT.md`](PRODUCT.md) |
+| See what exists and what comes next | [`ROADMAP.md`](ROADMAP.md) |
+| Understand the code structure | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Work on capture behavior | [`features/capture.md`](features/capture.md) |
+| Work on object selection | [`features/selection.md`](features/selection.md) |
+| Work on clipboard or file output | [`features/export.md`](features/export.md) |
+| Work on the SAM backend | [`SAM2.md`](SAM2.md) |
+| Understand a durable technical choice | [`decisions/`](decisions/README.md) |
 
-If two live documents conflict, the document that owns the subject in this
-table wins. Fix the non-owning reference rather than copying the requirement.
+## Document roles
 
-## Minimal context by task
+- `PRODUCT.md` describes who the product is for and what belongs in it.
+- `ROADMAP.md` records implementation status and sequencing.
+- Feature documents describe intended user-visible behavior. They may include
+  planned behavior that has not been implemented yet.
+- `ARCHITECTURE.md` describes the current structure and important boundaries.
+- Decision records preserve the reasoning behind costly technical choices.
+- Code and tests are authoritative for what is implemented today.
 
-| Task | Read first |
-|---|---|
-| Change selection behavior | `PRODUCT.md`, `features/selection.md`, relevant domain/UI code and tests |
-| Change screenshot behavior | `PRODUCT.md`, `features/capture.md`, relevant capture/UI code and tests |
-| Change clipboard or saved output | `PRODUCT.md`, `features/export.md`, relevant export code and tests |
-| Change session state or dependency direction | `ARCHITECTURE.md`, affected feature file, relevant code and tests |
-| Add or compare a segmentation backend | `ARCHITECTURE.md`, `ROADMAP.md`, `SAM2.md`, segmentation interface and benchmarks |
-| Choose the next work item | `PRODUCT.md`, `ROADMAP.md` |
-| Reconsider a foundational choice | Relevant live document and decision records |
-
-## Document status
-
-- **Draft**: proposed and explicitly open to revision; not yet accepted.
-- **Accepted**: intended behavior or direction.
-- **Implemented**: present in code but not necessarily fully verified.
-- **Verified**: implemented with appropriate automated or manual evidence.
-- **Deferred**: intentionally outside the active milestone.
-
-Status applies at the smallest clearly labelled scope. Unlabelled content in a
-Draft document is Draft.
-
-## Change protocol
-
-1. Change the owning feature specification and its acceptance criteria.
-2. Change or add tests that express the new behavior.
-3. Change the implementation.
-4. Update `ARCHITECTURE.md` only if a boundary or invariant changed.
-5. Update `ROADMAP.md` only if milestone scope or status changed.
-6. Add a decision record only for a consequential choice whose rationale will
-   matter later.
-
-Do not maintain prose changelogs or duplicate acceptance criteria. Git preserves
-history; live documents describe the current intended state.
-
-## Coding-agent working agreement
-
-For a scoped implementation task:
-
-1. Name the feature or acceptance criterion being changed.
-2. Read only its minimal context set from this index.
-3. Inspect relevant code and tests before proposing files.
-4. State the intended file impact before editing.
-5. Do not implement later milestones opportunistically.
-6. Ask before editing files, as required by the repository instructions.
-7. Report specification ambiguity rather than inventing durable product policy.
+When implementation changes, update the smallest owning document. Avoid
+copying the same requirement or setup instructions into multiple files.

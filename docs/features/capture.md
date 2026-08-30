@@ -1,6 +1,6 @@
 # Capture and context region
 
-**Status:** Draft  
+**Status:** Implemented with open platform and interaction decisions
 **First milestone:** 0.1
 
 This document owns application invocation, screen acquisition, frozen-screen
@@ -11,7 +11,7 @@ capture-related platform behavior. It does not own object prompts or output.
 
 Let the user quickly isolate the part of the screen that contains the desired
 object and useful surrounding context. Unrelated pixels should not be passed to
-the future image encoder.
+the image encoder.
 
 For example, when extracting something from a browser video, the user can
 include the video area while excluding tabs and other browser chrome.
@@ -118,26 +118,26 @@ desktop may mediate permission. Other Qt platforms use direct screen capture.
 
 ## 0.1 acceptance criteria
 
-- [ ] Application starts and remains accessible through a system-tray item.
+- [x] Application starts and remains accessible through a system-tray item.
 - [x] The tray menu's **Capture region** action invokes capture.
 - [x] `Super+Shift+O` globally invokes the same capture action on Wayland.
-- [ ] Invocation captures one screen before showing the overlay.
-- [ ] A fullscreen frameless overlay displays the stable captured pixels.
-- [ ] Dragging creates a normalized rectangular draft in every drag direction.
-- [ ] Dragging inside moves the rectangle without changing its size.
-- [ ] Each edge and corner resizes the expected bounds.
-- [ ] Creating, moving, and resizing remain clamped to image bounds.
-- [ ] Starting a drag outside the draft replaces it.
-- [ ] Draft edits do not invoke the segmentation boundary.
-- [ ] **Lock region** is unavailable for an invalid or empty rectangle.
-- [ ] Locking produces exactly the enclosed pixels as a committed context crop.
-- [ ] Crop-local coordinate origin and frozen-image offset are correct.
-- [ ] Locking invokes a model-free placeholder handoff exactly once.
-- [ ] `Esc` cancels without committing a crop or producing output.
-- [ ] A second invocation cannot create a nested capture session.
-- [ ] Rectangle hit-testing, bounds, clamping, and coordinate transformations
+- [x] Invocation captures one screen before showing the overlay.
+- [x] A fullscreen frameless overlay displays the stable captured pixels.
+- [x] Dragging creates a normalized rectangular draft in every drag direction.
+- [x] Dragging inside moves the rectangle without changing its size.
+- [x] Each edge and corner resizes the expected bounds.
+- [x] Creating, moving, and resizing remain clamped to image bounds.
+- [x] Starting a drag outside the draft replaces it.
+- [x] Draft edits do not invoke the segmentation boundary.
+- [x] **Lock region** is unavailable for an invalid or empty rectangle.
+- [x] Locking produces exactly the enclosed pixels as a committed context crop.
+- [x] Crop-local coordinates begin at the committed crop's top-left.
+- [x] Locking opens selection and starts image encoding exactly once.
+- [x] `Esc` cancels without committing a crop or producing output.
+- [x] A second invocation cannot create a nested capture session.
+- [x] Rectangle hit-testing, bounds, clamping, and coordinate transformations
       have deterministic unit tests.
-- [ ] Capture/platform code remains independent of segmentation backends.
+- [x] Capture/platform code remains independent of segmentation backends.
 - [x] Native Wayland capture receives pixels asynchronously through the desktop
       screenshot portal.
 
@@ -156,8 +156,6 @@ desktop may mediate permission. Other Qt platforms use direct screen capture.
 
 ## Deferred
 
-SAM integration, object prompts, configurable shortcuts,
-multi-monitor capture, mixed-DPI displays, full Wayland/X11 breadth, Windows,
-macOS, screen
-recording, capture history, and polished native permission flows are outside
-milestone 0.1.
+Configurable shortcuts, multi-monitor capture, mixed-DPI displays, full
+Wayland/X11 breadth, Windows, macOS, screen recording, capture history, and
+polished native permission flows remain outside the current capture scope.
