@@ -1,130 +1,113 @@
 # ObjectSnip
 
-ObjectSnip is a local-first desktop tool for selecting an object from a frozen
-screenshot and copying it as a transparent image.
+ObjectSnip provides a quick way to extract an object from anything visible on
+your screen. Capture a region, click the object, refine the generated mask, and
+copy the result as a transparent image -- all within one integrated workflow.
 
-The project is in early development. The current vertical slice provides a tray
-application, an editable context-region workflow, and the asynchronous
-selection workspace, and SAM 2.1 image encoding.
+Object selection is powered by SAM 2.1, a promptable image-segmentation
+foundation model. The model runs fully on your computer and provides fast feedback as you
+adjust the selection.
 
-## Documentation
+The workflow is:
 
-Start with [`docs/INDEX.md`](docs/INDEX.md). It identifies the authoritative
-document and minimal reading set for each kind of work.
+1. Start a capture from the system tray or with the keyboard shortcut
+   (`Super+Shift+O`).
+2. Draw and adjust a region around the object, then choose **Lock region**.
+3. Add a positive point to include part of the object or a negative point to
+   exclude an area.
+4. Review the generated masks and choose the best one. The chosen mask is used as the starting point for the next adjustment.
+5. Repeat the previous two steps until the selection is right.
+6. Export to clipboard or as a file
 
-## Development
+> [!IMPORTANT]
+> ObjectSnip is still in early development. Screen capture and interactive
+> object selection work, but copying the transparent result to the clipboard
+> has not been implemented yet. Linux is the currently supported development
+> platform, with support for other operating systems planned later.
 
-The project uses modern Python packaging and tooling through
-[`uv`](https://docs.astral.sh/uv/).
+## Examples
+
+<!-- TODO: Add a GIF or video demonstrating the complete workflow. -->
+
+ObjectSnip can be used for tasks such as:
+
+- extracting a person or object from a video or webpage for use in a slide;
+- isolating a diagram or figure for notes or documentation;
+- preparing visual elements for a design, mockup, or presentation;
+- making a quick transparent cutout when opening a photo editor would be
+  tedious.
+
+Keeping capture, selection, and refinement in one workflow avoids moving a
+screenshot through a separate photo editor or uploading it to a web service.
+
+## Selection controls
+
+- **Positive**: add a point that belongs to the object.
+- **Negative**: add a point that should be excluded.
+- Click an existing marker to remove it.
+- **Mask 1–3**: choose between the candidates generated after each prompt.
+- Mouse wheel: zoom toward the pointer.
+- **Pan** drag or middle-button drag: move a zoomed image.
+- **Reset prompts**: remove all points and generated masks.
+- **Reset zoom**: return to the centered fit-to-window view.
+
+
+## Requirements
+
+The current development build requires:
+
+- a Linux desktop with a system tray;
+- Python 3.12 or newer;
+- [`uv`](https://docs.astral.sh/uv/);
+- enough memory and storage to run the selected SAM 2.1 model.
+
+Available model sizes are `tiny`, `small`, `base-plus`, and `large`. The default
+is `small`.
+
+On Wayland, screen capture and the global shortcut use XDG desktop portals. The
+desktop may ask for permission or allow you to choose a different shortcut.
+Other Qt platforms currently use direct screen capture.
+
+## Install and run
+
+ObjectSnip does not yet provide a packaged release. Install the development
+environment from the repository with:
 
 ```bash
 uv sync
-just model
-uv run objectsnip
 ```
 
-Choose **Capture region** from the tray menu (or double-click its icon), draw a
-rectangle, adjust it by dragging its interior, edges, or corners, then choose
-**Lock region**. Locking opens the object-selection workspace and sends the crop
-to the selected SAM 2.1 Hiera model on a background thread. The image remains
-visible beneath the preparation state until its reusable embedding is ready. See
-[`docs/SAM2.md`](docs/SAM2.md) for setup, runtime options, and the backend
-contract.
-
-Keep the locked context region reasonably close to square when practical. SAM
-resizes every input directly to `1024 × 1024` during preprocessing, so extremely
-wide or tall crops are distorted and give the object fewer effective pixels.
-
-## Project commands
-
-The root `justfile` is the executable source of truth for routine development
-commands. Run `just` to list them.
-
-| Command | Purpose |
-|---|---|
-| `just setup` | Install or update the locked development environment |
-| `just model` | Download and verify the official SAM 2.1 Small checkpoint |
-| `just model tiny` | Download and verify another SAM 2.1 model size |
-| `just run` | Start the system-tray application |
-| `just debug` | Start with capture artifacts saved under `.artifacts/captures` |
-| `just test` | Run the test suite |
-| `just lint` | Check for Ruff lint violations |
-| `just format-check` | Verify formatting without changing files |
-| `just format` | Format the codebase |
-| `just typecheck` | Run Pyright static analysis |
-| `just check` | Run every non-mutating quality gate |
-| `just fix` | Apply safe lint fixes and formatting |
-| `just build` | Build source and wheel distributions |
-
-Before committing, normally run:
-
-```bash
-just check
-```
-
-The recipes intentionally delegate environment and Python command execution to
-`uv`. A future CI workflow should invoke `just check` rather than reproduce the
-individual commands.
-
-## VS Code debugging
-
-Run `just setup` first, then open the repository directory in VS Code. The
-shared launch configurations use `.venv/bin/python` and appear in the **Run and
-Debug** panel:
-
-- **ObjectSnip: Run** starts the normal tray application.
-- **ObjectSnip: Debug captures** also saves source and region artifacts under
-  `.artifacts/captures`.
-
-Both launch the `objectsnip` module in the integrated terminal, so breakpoints
-work inside Qt event callbacks and portal responses. Useful initial breakpoint
-locations include:
-
-- `ObjectSnipApplication.start_capture()`;
-- `PortalScreenshotService.request()`;
-- `PortalScreenshotService._on_response()`;
-- `ObjectSnipApplication._portal_captured()`;
-- `CaptureOverlay.mousePressEvent()`; and
-- `CaptureOverlay._lock_region()`.
-
-The workspace also enables pytest discovery.
-
-`Super+Shift+O` invokes **Capture region** globally. On Wayland, ObjectSnip
-registers it through the XDG Global Shortcuts portal; the desktop may show a
-one-time confirmation or allow choosing a different binding.
-
-### Wayland compatibility
-
-On native Wayland, ObjectSnip requests the screenshot through the standardized
-XDG Desktop Portal. The request is asynchronous and the desktop may mediate
-permission before returning the image. On other Qt platforms, the current
-implementation uses Qt's direct screen-grab API.
-
-Rectangle and crop logic receive the same `QImage` through either path and do
-not depend on the capture mechanism.
-
-### Visual capture debugging
-
-Enable explicit debug output to save both the screenshot received from the
-capture backend and the region produced by **Lock region**:
-
-```bash
-uv run objectsnip --debug-captures
-```
-
-The default directory is `.artifacts/captures`, which is ignored by Git. Each
-session produces a timestamp-matched pair:
+Download a model checkpoint:
 
 ```text
-<timestamp>-source.png
-<timestamp>-region.png
+uv run python scripts/download_sam2.py [--model <model>]
 ```
 
-Override the directory when useful:
+Then start ObjectSnip with the same model:
+
+```text
+uv run objectsnip [--model <model>]
+```
+
+`<model>` may be one of:
+
+- `tiny`
+- `small` (default)
+- `base-plus`
+- `large`
+
+If `--model` is omitted, ObjectSnip uses `small`.
+
+For example:
 
 ```bash
-uv run objectsnip --debug-captures /tmp/objectsnip-captures
+uv run python scripts/download_sam2.py --model small
+uv run objectsnip --model small
 ```
 
-Debug image saving is disabled unless the flag is present. Paths are printed to
-the terminal, and the locked-region path is included in the tray notification.
+ObjectSnip remains available from the system tray. Right-click its icon, choose
+**Capture region**, or press `Super+Shift+O` to begin.
+
+Keep the context region reasonably close to square when practical. SAM resizes
+each input to `1024 × 1024`, so extremely wide or tall regions give the object
+fewer effective pixels.
