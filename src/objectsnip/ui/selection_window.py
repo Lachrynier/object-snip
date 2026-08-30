@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from math import ceil
 from pathlib import Path
 
 import numpy as np
@@ -11,12 +12,16 @@ from PySide6.QtGui import (
     QActionGroup,
     QColor,
     QDesktopServices,
+    QFont,
+    QGuiApplication,
     QIcon,
     QImage,
     QMouseEvent,
     QPainter,
+    QPainterPath,
     QPaintEvent,
     QPen,
+    QPixmap,
     QResizeEvent,
     QWheelEvent,
 )
@@ -26,7 +31,10 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QStyle,
+    QStyleOptionToolButton,
+    QStylePainter,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -34,6 +42,109 @@ from PySide6.QtWidgets import (
 )
 
 from objectsnip.segmentation.interface import PointLabel, PointPrompt
+
+
+def _toolbar_icon(name: str) -> QIcon:
+    """Return a fallback icon rendered for the active desktop pixel ratio."""
+    screen = QGuiApplication.primaryScreen()
+    pixel_ratio = screen.devicePixelRatio() if screen is not None else 1.0
+    pixmap = QPixmap(ceil(20 * pixel_ratio), ceil(20 * pixel_ratio))
+    pixmap.setDevicePixelRatio(pixel_ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor("#30343a"), 1.7, Qt.PenStyle.SolidLine))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+
+    if name in {"positive", "negative"}:
+        painter.drawEllipse(QRectF(3, 3, 14, 14))
+        painter.drawLine(QPointF(6.5, 10), QPointF(13.5, 10))
+        if name == "positive":
+            painter.drawLine(QPointF(10, 6.5), QPointF(10, 13.5))
+    elif name == "fit":
+        for start, corner, end in (
+            (QPointF(8, 3), QPointF(3, 3), QPointF(3, 8)),
+            (QPointF(12, 3), QPointF(17, 3), QPointF(17, 8)),
+            (QPointF(3, 12), QPointF(3, 17), QPointF(8, 17)),
+            (QPointF(17, 12), QPointF(17, 17), QPointF(12, 17)),
+        ):
+            path = QPainterPath(start)
+            path.lineTo(corner)
+            path.lineTo(end)
+            painter.drawPath(path)
+    elif name == "pan":
+        path = QPainterPath(QPointF(6, 9))
+        path.lineTo(6, 6)
+        path.cubicTo(6, 4.5, 8, 4.5, 8, 6)
+        path.lineTo(8, 4)
+        path.cubicTo(8, 2.5, 10, 2.5, 10, 4)
+        path.lineTo(10, 3.5)
+        path.cubicTo(10, 2, 12, 2, 12, 3.5)
+        path.lineTo(12, 5)
+        path.cubicTo(12, 3.5, 14, 3.5, 14, 5)
+        path.lineTo(14, 10)
+        path.cubicTo(14, 15, 12, 17, 9, 17)
+        path.cubicTo(6.5, 17, 5.5, 15, 4, 12)
+        path.cubicTo(3, 10, 4.5, 8.5, 6, 9)
+        painter.drawPath(path)
+    painter.end()
+    return QIcon(pixmap)
+
+
+class CandidateToolButton(QToolButton):
+    """Draw a candidate number and confidence with distinct typography."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._number = ""
+        self._score = ""
+
+    def set_candidate_text(self, number: int, score: float | None = None) -> None:
+        self._number = str(number)
+        self._score = "" if score is None else f"({score:.3f})"
+        self.updateGeometry()
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        del event
+        option = QStyleOptionToolButton()
+        self.initStyleOption(option)
+        option.text = ""
+        painter = QStylePainter(self)
+        painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
+
+        number_font = QFont(self.font())
+        number_font.setBold(True)
+        number_font.setPointSizeF(number_font.pointSizeF() + 0.5)
+        score_font = QFont(self.font())
+        score_font.setPointSizeF(max(8.0, score_font.pointSizeF() - 1.0))
+        painter.setFont(number_font)
+        number_width = painter.fontMetrics().horizontalAdvance(self._number)
+        painter.setFont(score_font)
+        score_width = painter.fontMetrics().horizontalAdvance(self._score)
+        gap = 5 if self._score else 0
+        left = (self.width() - number_width - gap - score_width) // 2
+
+        if not self.isEnabled():
+            number_color = score_color = QColor("#9298a1")
+        elif self.isChecked():
+            number_color, score_color = QColor("#071521"), QColor("#27475b")
+        else:
+            number_color, score_color = QColor("#24282e"), QColor("#68707b")
+        painter.setFont(number_font)
+        painter.setPen(number_color)
+        painter.drawText(
+            QRect(left, 0, number_width, self.height()),
+            Qt.AlignmentFlag.AlignCenter,
+            self._number,
+        )
+        painter.setFont(score_font)
+        painter.setPen(score_color)
+        painter.drawText(
+            QRect(left + number_width + gap, 0, score_width, self.height()),
+            Qt.AlignmentFlag.AlignCenter,
+            self._score,
+        )
 
 
 def fitted_image_rect(image_size: QSize, viewport_size: QSize) -> QRect:
@@ -129,28 +240,54 @@ class ObjectSelectionWindow(QWidget):
         self._toolbar.setFloatable(False)
         modes = QActionGroup(self)
         modes.setExclusive(True)
-        self._include_action = QAction("Positive", modes)
+        self._reset_prompts_action = QAction("Clear", self)
+        self._reset_prompts_action.setToolTip("Clear all prompts")
+        self._reset_prompts_action.triggered.connect(self._reset_prompts)
+        self._toolbar.addAction(self._reset_prompts_action)
+        self._toolbar.addSeparator()
+        self._include_action = QAction(
+            _toolbar_icon("positive"),
+            "Positive",
+            modes,
+        )
+        self._include_action.setToolTip(
+            "Mark an area that belongs to the object. "
+            "Click an existing point to remove it."
+        )
         self._include_action.setCheckable(True)
         self._include_action.setChecked(True)
         self._include_action.triggered.connect(
             lambda: self._set_point_mode(PointLabel.INCLUDE)
         )
-        self._exclude_action = QAction("Negative", modes)
+        self._exclude_action = QAction(
+            _toolbar_icon("negative"),
+            "Negative",
+            modes,
+        )
+        self._exclude_action.setToolTip(
+            "Mark an area that should be excluded from the object."
+        )
         self._exclude_action.setCheckable(True)
         self._exclude_action.triggered.connect(
             lambda: self._set_point_mode(PointLabel.EXCLUDE)
         )
         self._toolbar.addActions((self._include_action, self._exclude_action))
         self._toolbar.addSeparator()
-        self._reset_prompts_action = QAction("Reset prompts", self)
-        self._reset_prompts_action.triggered.connect(self._reset_prompts)
-        self._toolbar.addAction(self._reset_prompts_action)
-        self._toolbar.addSeparator()
         self._candidate_group = QActionGroup(self)
         self._candidate_group.setExclusive(True)
+        self._masks_group = QFrame(self._toolbar)
+        self._masks_group.setObjectName("masksGroup")
+        masks_layout = QHBoxLayout(self._masks_group)
+        masks_layout.setContentsMargins(5, 3, 5, 3)
+        masks_layout.setSpacing(4)
+        self._masks_label = QLabel("Masks", self._masks_group)
+        self._masks_label.setToolTip("Candidate masks")
+        masks_layout.addWidget(self._masks_label)
         self._candidate_actions: list[QAction] = []
+        self._candidate_buttons: list[CandidateToolButton] = []
         for index in range(3):
-            action = QAction(f"Mask {index + 1}", self._candidate_group)
+            action = QAction(str(index + 1), self._candidate_group)
+            action.setToolTip(f"Mask {index + 1} is not available yet")
             action.setCheckable(True)
             action.setEnabled(False)
             action.triggered.connect(
@@ -159,12 +296,33 @@ class ObjectSelectionWindow(QWidget):
                 )
             )
             self._candidate_actions.append(action)
-            self._toolbar.addAction(action)
-        self._toolbar.addSeparator()
-        self._reset_zoom_action = QAction("Reset zoom", self)
+            button = CandidateToolButton(self._masks_group)
+            button.setDefaultAction(action)
+            button.set_candidate_text(index + 1)
+            button.setProperty("toolRole", "candidate")
+            self._candidate_buttons.append(button)
+            masks_layout.addWidget(button)
+        self._toolbar.addWidget(self._masks_group)
+        spacer = QWidget(self._toolbar)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self._toolbar.addWidget(spacer)
+        self._reset_zoom_action = QAction(
+            QIcon.fromTheme("zoom-fit-best", _toolbar_icon("fit")),
+            "Reset zoom",
+            self,
+        )
+        self._reset_zoom_action.setToolTip("Reset zoom")
         self._reset_zoom_action.triggered.connect(self._reset_zoom)
         self._toolbar.addAction(self._reset_zoom_action)
-        self._pan_action = QAction("Pan", self)
+        self._pan_action = QAction(
+            QIcon.fromTheme("transform-move", _toolbar_icon("pan")),
+            "Pan",
+            self,
+        )
+        self._pan_action.setToolTip(
+            "Drag to move the zoomed image. "
+            "You can also drag with the middle mouse button."
+        )
         self._pan_action.setCheckable(True)
         self._pan_action.toggled.connect(self._pan_toggled)
         self._toolbar.addAction(self._pan_action)
@@ -177,7 +335,9 @@ class ObjectSelectionWindow(QWidget):
             "Copy object",
             self,
         )
-        self._copy_action.setToolTip("Copy object")
+        self._copy_action.setToolTip(
+            "Copy the selected object with a transparent background to the clipboard"
+        )
         self._copy_action.setEnabled(False)
         self._copy_action.triggered.connect(self.copy_requested)
         self._toolbar.addAction(self._copy_action)
@@ -189,55 +349,74 @@ class ObjectSelectionWindow(QWidget):
             "Save object as PNG",
             self,
         )
-        self._save_as_action.setToolTip("Save object as PNG")
+        self._save_as_action.setToolTip(
+            "Save the selected object with a transparent background as a PNG"
+        )
         self._save_as_action.setEnabled(False)
         self._save_as_action.triggered.connect(self.save_as_requested)
         self._toolbar.addAction(self._save_as_action)
         self._set_toolbar_role(self._include_action, "positive")
         self._set_toolbar_role(self._exclude_action, "negative")
         self._set_toolbar_role(self._reset_prompts_action, "reset")
-        for action in self._candidate_actions:
-            self._set_toolbar_role(action, "candidate")
         self._set_toolbar_role(self._reset_zoom_action, "navigation")
         self._set_toolbar_role(self._pan_action, "pan")
         self._set_toolbar_role(self._copy_action, "export")
         self._set_toolbar_role(self._save_as_action, "export")
-        for action in (self._copy_action, self._save_as_action):
+        for action in (
+            self._include_action,
+            self._exclude_action,
+            self._reset_zoom_action,
+            self._pan_action,
+            self._copy_action,
+            self._save_as_action,
+        ):
             button = self._toolbar.widgetForAction(action)
             if isinstance(button, QToolButton):
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self._toolbar.setStyleSheet(
             "QToolBar#selectionToolbar {"
-            "  background: #30343b;"
+            "  background: #d8dadd;"
             "  border: 0;"
-            "  border-bottom: 1px solid #4c515a;"
+            "  border-bottom: 1px solid #a5a9af;"
             "  spacing: 5px;"
             "  padding: 7px 9px;"
             "}"
             "QToolBar#selectionToolbar::separator {"
-            "  background: #555b65;"
-            "  width: 1px;"
-            "  margin: 5px 6px;"
+            "  background: #969ba3;"
+            "  width: 2px;"
+            "  margin: 4px 7px;"
+            "}"
+            "QToolBar#selectionToolbar QFrame#masksGroup {"
+            "  background: #c7cacf;"
+            "  border: 1px solid #969ba3;"
+            "  border-radius: 7px;"
+            "}"
+            "QToolBar#selectionToolbar QFrame#masksGroup QLabel {"
+            "  color: #30343a;"
+            "  background: transparent;"
+            "  border: 0;"
+            "  padding: 0 3px 0 1px;"
+            "  font-weight: 600;"
             "}"
             "QToolBar#selectionToolbar QToolButton {"
-            "  color: #f2f4f7;"
-            "  background: #41464f;"
-            "  border: 1px solid #555b65;"
+            "  color: #24282e;"
+            "  background: #eceef0;"
+            "  border: 1px solid #a6abb2;"
             "  border-radius: 6px;"
             "  padding: 6px 10px;"
             "  font-weight: 500;"
             "}"
             "QToolBar#selectionToolbar QToolButton:hover {"
-            "  background: #505761;"
-            "  border-color: #737b87;"
+            "  background: #f8f9fa;"
+            "  border-color: #7f858e;"
             "}"
             "QToolBar#selectionToolbar QToolButton:pressed {"
-            "  background: #25282e;"
+            "  background: #bfc3c8;"
             "}"
             "QToolBar#selectionToolbar QToolButton:disabled {"
-            "  color: #9298a1;"
-            "  background: #363a41;"
-            "  border-color: #42474f;"
+            "  color: #858b94;"
+            "  background: #ced1d5;"
+            "  border-color: #b4b8be;"
             "}"
             "QToolBar#selectionToolbar QToolButton[toolRole='positive']:checked {"
             "  color: #071b0d;"
@@ -264,14 +443,14 @@ class ObjectSelectionWindow(QWidget):
             "  font-weight: 700;"
             "}"
             "QToolBar#selectionToolbar QToolButton[toolRole='reset'] {"
-            "  color: #ffd18a;"
-            "  background: #454038;"
-            "  border-color: #78654a;"
+            "  color: #5c431b;"
+            "  background: #f2e1bd;"
+            "  border-color: #c7a86f;"
             "}"
             "QToolBar#selectionToolbar QToolButton[toolRole='reset']:hover {"
-            "  color: #ffe1b0;"
-            "  background: #5a4d3b;"
-            "  border-color: #a58150;"
+            "  color: #3f2d11;"
+            "  background: #f8e9ca;"
+            "  border-color: #aa8545;"
             "}"
             "QToolBar#selectionToolbar QToolButton[toolRole='export'] {"
             "  min-width: 28px;"
@@ -511,9 +690,15 @@ class ObjectSelectionWindow(QWidget):
             available = index < len(scores)
             action.setEnabled(available)
             action.setVisible(available)
+            self._candidate_buttons[index].setVisible(available)
             action.setChecked(index == 0 and available)
             if available:
-                action.setText(f"Mask {index + 1} ({float(scores[index]):.3f})")
+                score = float(scores[index])
+                action.setText(f"{index + 1} ({score:.3f})")
+                self._candidate_buttons[index].set_candidate_text(index + 1, score)
+                action.setToolTip(
+                    f"Select mask {index + 1} — confidence {score:.3f}"
+                )
         if self._candidate_masks:
             self.set_mask(self._candidate_masks[0])
             self._set_export_enabled(True)
@@ -524,10 +709,13 @@ class ObjectSelectionWindow(QWidget):
         self._candidate_masks = ()
         self._active_candidate = 0
         for index, action in enumerate(self._candidate_actions):
-            action.setText(f"Mask {index + 1}")
+            action.setText(str(index + 1))
+            action.setToolTip(f"Mask {index + 1} is not available yet")
             action.setChecked(False)
             action.setEnabled(False)
             action.setVisible(True)
+            self._candidate_buttons[index].set_candidate_text(index + 1)
+            self._candidate_buttons[index].setVisible(True)
         self.clear_mask()
         self._set_export_enabled(False)
 
