@@ -32,9 +32,10 @@ The workflow is:
 
 ObjectSnip can be used for tasks such as:
 
-- extracting a person or object from a video or webpage for use in a slide;
-- isolating a diagram or figure for notes or documentation;
-- preparing visual elements for a design, mockup, or presentation;
+- extracting an object or person from media for use in a slide;
+- removing a distracting background from a portrait to create a clean profile picture;
+- isolating a diagram or figure for use in notes or documentation;
+- preparing visual elements for design, mockup, or media creation;
 - making a quick transparent cutout when opening a photo editor would be
   tedious.
 
@@ -117,3 +118,8 @@ ObjectSnip remains available from the system tray. Right-click its icon, choose
 Keep the context region reasonably close to square when practical. SAM resizes
 each input to `1024 × 1024`, so extremely wide or tall regions give the object
 fewer effective pixels.
+
+## License
+
+ObjectSnip is licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE).
