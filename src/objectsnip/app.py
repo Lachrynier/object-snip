@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QObject, Slot
 from PySide6.QtGui import QAction, QGuiApplication, QImage, QScreen
-from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QMenu,
+    QMessageBox,
+    QStyle,
+    QSystemTrayIcon,
+)
 
 from objectsnip.capture.portal import PortalScreenshotService
 from objectsnip.capture.screen import (
@@ -16,6 +24,8 @@ from objectsnip.capture.screen import (
 )
 from objectsnip.debug_capture import DebugCaptureSession, DebugCaptureWriter
 from objectsnip.domain.geometry import Rect
+from objectsnip.export.cutout import build_cutout
+from objectsnip.export.file import save_png
 from objectsnip.segmentation.image import image_data_from_qimage
 from objectsnip.segmentation.interface import (
     ImageData,
@@ -196,6 +206,8 @@ class ObjectSnipApplication(QObject):
         selection_window.retry_requested.connect(self._retry_image_encoding)
         selection_window.prompts_changed.connect(self._prompts_changed)
         selection_window.candidate_selected.connect(self._candidate_selected)
+        selection_window.copy_requested.connect(self._copy_cutout)
+        selection_window.save_as_requested.connect(self._save_cutout_as)
         selection_window.destroyed.connect(
             lambda _object=None, window=selection_window: (
                 self._selection_window_destroyed(window)
@@ -273,6 +285,61 @@ class ObjectSnipApplication(QObject):
         if not 0 <= index < len(self._segmentation_result.scores):
             return
         self._active_candidate = index
+
+    def _active_cutout_image(self) -> QImage:
+        if self._selection_image is None or self._segmentation_result is None:
+            raise ValueError("select an object before exporting")
+        if not 0 <= self._active_candidate < len(self._segmentation_result.masks):
+            raise ValueError("the active mask is unavailable")
+        cutout = build_cutout(
+            self._selection_image,
+            self._segmentation_result.masks[self._active_candidate],
+        )
+        height, width, _channels = cutout.rgba.shape
+        return QImage(
+            cutout.rgba.data,
+            width,
+            height,
+            cutout.rgba.strides[0],
+            QImage.Format.Format_RGBA8888,
+        ).copy()
+
+    @Slot()
+    def _copy_cutout(self) -> None:
+        if self._selection_window is None:
+            return
+        try:
+            image = self._active_cutout_image()
+            self._application.clipboard().setImage(image)
+            self._selection_window.show_copy_confirmation()
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(
+                self._selection_window, "Could not copy cutout", str(exc)
+            )
+
+    @Slot()
+    def _save_cutout_as(self) -> None:
+        if self._selection_window is None:
+            return
+        suggested_name = f"objectsnip-{datetime.now():%Y-%m-%d-%H%M%S}.png"
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self._selection_window,
+            "Save cutout as",
+            suggested_name,
+            "PNG image (*.png)",
+        )
+        if not path:
+            return
+        if Path(path).suffix.lower() != ".png":
+            path += ".png"
+        try:
+            image = self._active_cutout_image()
+            save_png(image, path)
+            self._selection_window.show_save_confirmation(path)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(
+                self._selection_window, "Could not save cutout", str(exc)
+            )
 
     @Slot(int, str)
     def _mask_prediction_failed(self, request: int, message: str) -> None:

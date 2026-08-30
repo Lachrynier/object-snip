@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from html import escape
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import NDArray
-from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QColor,
+    QDesktopServices,
+    QIcon,
     QImage,
     QMouseEvent,
     QPainter,
@@ -17,9 +22,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QFrame,
+    QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
+    QStyle,
     QToolBar,
     QToolButton,
     QVBoxLayout,
@@ -90,6 +97,8 @@ class ObjectSelectionWindow(QWidget):
     retry_requested = Signal()
     prompts_changed = Signal(object)
     candidate_selected = Signal(int)
+    copy_requested = Signal()
+    save_as_requested = Signal()
     DEFAULT_SIZE = QSize(960, 640)
     MARKER_RADIUS = 7
     MIN_ZOOM = 1.0
@@ -159,6 +168,31 @@ class ObjectSelectionWindow(QWidget):
         self._pan_action.setCheckable(True)
         self._pan_action.toggled.connect(self._pan_toggled)
         self._toolbar.addAction(self._pan_action)
+        self._toolbar.addSeparator()
+        self._copy_action = QAction(
+            QIcon.fromTheme(
+                "edit-copy",
+                self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton),
+            ),
+            "Copy object",
+            self,
+        )
+        self._copy_action.setToolTip("Copy object")
+        self._copy_action.setEnabled(False)
+        self._copy_action.triggered.connect(self.copy_requested)
+        self._toolbar.addAction(self._copy_action)
+        self._save_as_action = QAction(
+            QIcon.fromTheme(
+                "document-save-as",
+                self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
+            ),
+            "Save object as PNG",
+            self,
+        )
+        self._save_as_action.setToolTip("Save object as PNG")
+        self._save_as_action.setEnabled(False)
+        self._save_as_action.triggered.connect(self.save_as_requested)
+        self._toolbar.addAction(self._save_as_action)
         self._set_toolbar_role(self._include_action, "positive")
         self._set_toolbar_role(self._exclude_action, "negative")
         self._set_toolbar_role(self._reset_prompts_action, "reset")
@@ -166,6 +200,12 @@ class ObjectSelectionWindow(QWidget):
             self._set_toolbar_role(action, "candidate")
         self._set_toolbar_role(self._reset_zoom_action, "navigation")
         self._set_toolbar_role(self._pan_action, "pan")
+        self._set_toolbar_role(self._copy_action, "export")
+        self._set_toolbar_role(self._save_as_action, "export")
+        for action in (self._copy_action, self._save_as_action):
+            button = self._toolbar.widgetForAction(action)
+            if isinstance(button, QToolButton):
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self._toolbar.setStyleSheet(
             "QToolBar#selectionToolbar {"
             "  background: #30343b;"
@@ -233,6 +273,10 @@ class ObjectSelectionWindow(QWidget):
             "  background: #5a4d3b;"
             "  border-color: #a58150;"
             "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='export'] {"
+            "  min-width: 28px;"
+            "  padding: 6px;"
+            "}"
         )
 
         self._status_overlay = QFrame(self)
@@ -254,6 +298,79 @@ class ObjectSelectionWindow(QWidget):
         layout.addWidget(self._status_label)
         layout.addWidget(self._progress)
         layout.addWidget(self._retry_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self._export_bar = QFrame(self)
+        self._export_bar.setObjectName("exportMessageBar")
+        export_layout = QHBoxLayout(self._export_bar)
+        export_layout.setContentsMargins(12, 4, 8, 4)
+        export_layout.setSpacing(8)
+        self._export_message = QLabel(self._export_bar)
+        self._export_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._export_message.setTextFormat(Qt.TextFormat.RichText)
+        self._export_message.setTextInteractionFlags(
+            Qt.TextInteractionFlag.LinksAccessibleByMouse
+        )
+        self._export_message.linkActivated.connect(self._open_export_link)
+        export_layout.addStretch()
+        export_layout.addWidget(self._export_message)
+        self._open_folder_button = QToolButton(self._export_bar)
+        self._open_folder_button.setIcon(
+            QIcon.fromTheme(
+                "folder-open",
+                self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
+            )
+        )
+        self._open_folder_button.setText("Open folder")
+        self._open_folder_button.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self._open_folder_button.clicked.connect(self._open_export_folder)
+        export_layout.addWidget(self._open_folder_button)
+        export_layout.addStretch()
+        self._close_export_button = QToolButton(self._export_bar)
+        self._close_export_button.setObjectName("closeExportButton")
+        self._close_export_button.setIcon(
+            QIcon.fromTheme(
+                "window-close",
+                self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton),
+            )
+        )
+        self._close_export_button.setToolTip("Dismiss")
+        self._close_export_button.clicked.connect(self._hide_export_message)
+        export_layout.addWidget(self._close_export_button)
+        self._export_bar.setStyleSheet(
+            "QFrame#exportMessageBar {"
+            "  color: #dcecff;"
+            "  background: #25384d;"
+            "  border-bottom: 1px solid #4d7399;"
+            "}"
+            "QFrame#exportMessageBar QLabel { color: #dcecff; }"
+            "QFrame#exportMessageBar QLabel a {"
+            "  color: #85c7ff;"
+            "  text-decoration: underline;"
+            "}"
+            "QFrame#exportMessageBar QToolButton {"
+            "  color: #e9f4ff;"
+            "  background: #36516d;"
+            "  border: 1px solid #5e82a7;"
+            "  border-radius: 4px;"
+            "  padding: 4px 7px;"
+            "}"
+            "QFrame#exportMessageBar QToolButton:hover { background: #456789; }"
+            "QFrame#exportMessageBar QToolButton#closeExportButton {"
+            "  background: #a83232;"
+            "  border-color: #dc5a5a;"
+            "}"
+            "QFrame#exportMessageBar QToolButton#closeExportButton:hover {"
+            "  background: #cc4141;"
+            "  border-color: #ff7777;"
+            "}"
+        )
+        self._export_bar.hide()
+        self._export_link_path: Path | None = None
+        self._export_message_timer = QTimer(self)
+        self._export_message_timer.setSingleShot(True)
+        self._export_message_timer.timeout.connect(self._hide_export_message)
 
     @property
     def is_encoding_ready(self) -> bool:
@@ -287,6 +404,7 @@ class ObjectSelectionWindow(QWidget):
         self._toolbar.setEnabled(False)
 
     def show_predicting(self) -> None:
+        self._set_export_enabled(False)
         self._status_overlay.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
         )
@@ -297,6 +415,7 @@ class ObjectSelectionWindow(QWidget):
         self._status_overlay.raise_()
 
     def show_prediction_error(self, message: str) -> None:
+        self._set_export_enabled(False)
         self._status_overlay.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
         )
@@ -304,6 +423,60 @@ class ObjectSelectionWindow(QWidget):
         self._progress.hide()
         self._retry_button.hide()
         self._status_overlay.show()
+
+    def show_copy_confirmation(self) -> None:
+        self._export_link_path = None
+        self._export_message.setToolTip("")
+        self._export_message.setText("Object copied to clipboard")
+        self._open_folder_button.hide()
+        self._close_export_button.hide()
+        self._show_export_message()
+        self._export_message_timer.start(2500)
+
+    def show_save_confirmation(self, path: str | Path) -> None:
+        saved_path = Path(path).resolve()
+        self._export_link_path = saved_path
+        display_path = escape(str(saved_path))
+        file_url = escape(
+            bytes(QUrl.fromLocalFile(str(saved_path)).toEncoded()).decode("ascii"),
+            quote=True,
+        )
+        self._export_message.setToolTip(str(saved_path))
+        self._export_message.setText(
+            f'Object saved to <a href="{file_url}">{display_path}</a>'
+        )
+        self._open_folder_button.show()
+        self._close_export_button.show()
+        self._export_message_timer.stop()
+        self._show_export_message()
+
+    def _show_export_message(self) -> None:
+        self._position_export_message()
+        self._export_bar.show()
+        self._export_bar.raise_()
+
+    def _hide_export_message(self) -> None:
+        self._export_message_timer.stop()
+        self._export_bar.hide()
+
+    def _position_export_message(self) -> None:
+        height = self._export_bar.sizeHint().height()
+        self._export_bar.setGeometry(
+            0,
+            self._toolbar.height(),
+            self.width(),
+            height,
+        )
+
+    def _open_export_link(self, _link: str) -> None:
+        if self._export_link_path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._export_link_path)))
+
+    def _open_export_folder(self) -> None:
+        if self._export_link_path is not None:
+            QDesktopServices.openUrl(
+                QUrl.fromLocalFile(str(self._export_link_path.parent))
+            )
 
     def set_mask(self, mask: NDArray[np.bool_]) -> None:
         if mask.shape != (self._image.height(), self._image.width()):
@@ -343,6 +516,7 @@ class ObjectSelectionWindow(QWidget):
                 action.setText(f"Mask {index + 1} ({float(scores[index]):.3f})")
         if self._candidate_masks:
             self.set_mask(self._candidate_masks[0])
+            self._set_export_enabled(True)
         else:
             self.clear_mask()
 
@@ -355,6 +529,11 @@ class ObjectSelectionWindow(QWidget):
             action.setEnabled(False)
             action.setVisible(True)
         self.clear_mask()
+        self._set_export_enabled(False)
+
+    def _set_export_enabled(self, enabled: bool) -> None:
+        self._copy_action.setEnabled(enabled)
+        self._save_as_action.setEnabled(enabled)
 
     def _select_candidate(self, index: int) -> None:
         if not 0 <= index < len(self._candidate_masks):
@@ -449,6 +628,11 @@ class ObjectSelectionWindow(QWidget):
         )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._export_bar.isVisible() and self._export_bar.geometry().contains(
+            event.position().toPoint()
+        ):
+            event.accept()
+            return
         if not self._encoding_ready:
             super().mousePressEvent(event)
             return
@@ -566,3 +750,6 @@ class ObjectSelectionWindow(QWidget):
         self._toolbar.setGeometry(0, 0, self.width(), self._toolbar.sizeHint().height())
         self._status_overlay.setGeometry(self.rect())
         self._status_overlay.raise_()
+        self._position_export_message()
+        if self._export_bar.isVisible():
+            self._export_bar.raise_()
