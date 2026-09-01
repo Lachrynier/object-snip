@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from html import escape
 from math import ceil
 from pathlib import Path
@@ -26,12 +27,15 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QSlider,
     QStyle,
     QStyleOptionToolButton,
     QStylePainter,
@@ -39,9 +43,27 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
 )
 
 from objectsnip.segmentation.interface import PointLabel, PointPrompt
+
+
+class MaskView(Enum):
+    OVERLAY = "Overlay"
+    MASK = "Mask"
+    CUTOUT = "Cutout"
+    OUTLINE = "Outline"
+    EXCLUDED = "Excluded"
+
+
+MASK_COLORS = (
+    ("Cyan", "#00aaff"),
+    ("Magenta", "#f044d1"),
+    ("Yellow", "#ffd43b"),
+    ("Green", "#35c759"),
+    ("Red", "#ff453a"),
+)
 
 
 def _toolbar_icon(name: str) -> QIcon:
@@ -87,6 +109,14 @@ def _toolbar_icon(name: str) -> QIcon:
         path.cubicTo(6.5, 17, 5.5, 15, 4, 12)
         path.cubicTo(3, 10, 4.5, 8.5, 6, 9)
         painter.drawPath(path)
+    elif name in {"eye-open", "eye-closed"}:
+        eye = QPainterPath(QPointF(2.5, 10))
+        eye.cubicTo(6, 5, 14, 5, 17.5, 10)
+        eye.cubicTo(14, 15, 6, 15, 2.5, 10)
+        painter.drawPath(eye)
+        painter.drawEllipse(QPointF(10, 10), 2.5, 2.5)
+        if name == "eye-closed":
+            painter.drawLine(QPointF(3, 3), QPointF(17, 17))
     painter.end()
     return QIcon(pixmap)
 
@@ -219,11 +249,19 @@ class ObjectSelectionWindow(QWidget):
     def __init__(self, image: QImage) -> None:
         super().__init__()
         self._image = image.copy()
+        self._mask: NDArray[np.bool_] | None = None
         self._mask_image: QImage | None = None
+        self._outline_image: QImage | None = None
+        self._cutout_image: QImage | None = None
+        self._cutout_bounds: QRect | None = None
+        self._mask_view = MaskView.OVERLAY
+        self._mask_color = QColor(MASK_COLORS[0][1])
+        self._mask_opacity = 40
         self._candidate_masks: tuple[NDArray[np.bool_], ...] = ()
         self._active_candidate = 0
         self._points: list[PointPrompt] = []
         self._point_mode = PointLabel.INCLUDE
+        self._show_points = True
         self._zoom = self.MIN_ZOOM
         self._view_center = QPointF(self._image.width() / 2, self._image.height() / 2)
         self._pan_origin: QPointF | None = None
@@ -272,6 +310,16 @@ class ObjectSelectionWindow(QWidget):
             lambda: self._set_point_mode(PointLabel.EXCLUDE)
         )
         self._toolbar.addActions((self._include_action, self._exclude_action))
+        self._show_points_action = QAction(
+            QIcon.fromTheme("view-visible", _toolbar_icon("eye-open")),
+            "Show points",
+            self,
+        )
+        self._show_points_action.setToolTip("Hide prompt points")
+        self._show_points_action.setCheckable(True)
+        self._show_points_action.setChecked(True)
+        self._show_points_action.toggled.connect(self._show_points_toggled)
+        self._toolbar.addAction(self._show_points_action)
         self._toolbar.addSeparator()
         self._candidate_group = QActionGroup(self)
         self._candidate_group.setExclusive(True)
@@ -303,6 +351,66 @@ class ObjectSelectionWindow(QWidget):
             self._candidate_buttons.append(button)
             masks_layout.addWidget(button)
         self._toolbar.addWidget(self._masks_group)
+        self._toolbar.addSeparator()
+        self._view_combo = QComboBox(self._toolbar)
+        self._view_combo.setToolTip("Choose how to inspect the selected mask")
+        for view in MaskView:
+            self._view_combo.addItem(view.value, view)
+        self._view_combo.currentIndexChanged.connect(self._view_changed)
+        self._toolbar.addWidget(self._view_combo)
+        self._color_button = QToolButton(self._toolbar)
+        self._color_button.setObjectName("maskColorButton")
+        self._color_button.setToolTip("Mask color")
+        self._color_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        color_menu = QMenu(self._color_button)
+        color_menu.setObjectName("maskColorMenu")
+        color_menu.setStyleSheet(
+            "QMenu#maskColorMenu { padding: 3px; }"
+            "QMenu#maskColorMenu::item { padding: 0; margin: 0; }"
+        )
+        for name, value in MASK_COLORS:
+            action = QWidgetAction(color_menu)
+            action.setData(value)
+            action.setToolTip(name)
+            swatch = QPushButton(color_menu)
+            swatch.setFixedSize(44, 20)
+            swatch.setToolTip(name)
+            swatch.setAccessibleName(name)
+            swatch.setStyleSheet(
+                "QPushButton {"
+                f" background: {value}; border: 1px solid #565b62;"
+                " border-radius: 2px; margin: 1px; }"
+                "QPushButton:hover { border: 2px solid #202124; }"
+            )
+            swatch.clicked.connect(
+                lambda _checked=False, color=value: (
+                    self._set_mask_color(color),
+                    color_menu.close(),
+                )
+            )
+            action.setDefaultWidget(swatch)
+            color_menu.addAction(action)
+        self._color_menu = color_menu
+        self._color_button.setMenu(self._color_menu)
+        self._toolbar.addWidget(self._color_button)
+        self._opacity_group = QFrame(self._toolbar)
+        self._opacity_group.setObjectName("opacityGroup")
+        opacity_layout = QVBoxLayout(self._opacity_group)
+        opacity_layout.setContentsMargins(8, 3, 8, 4)
+        opacity_layout.setSpacing(0)
+        self._opacity_label = QLabel("Opacity", self._opacity_group)
+        self._opacity_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        opacity_layout.addWidget(self._opacity_label)
+        self._opacity_slider = QSlider(Qt.Orientation.Horizontal, self._opacity_group)
+        self._opacity_slider.setRange(0, 100)
+        self._opacity_slider.setValue(self._mask_opacity)
+        self._opacity_slider.setFixedWidth(90)
+        self._opacity_slider.setToolTip(f"Mask opacity: {self._mask_opacity}%")
+        self._opacity_slider.valueChanged.connect(self._opacity_changed)
+        opacity_layout.addWidget(self._opacity_slider)
+        self._opacity_group.setFixedWidth(108)
+        self._toolbar.addWidget(self._opacity_group)
+        self._update_mask_color_ui()
         spacer = QWidget(self._toolbar)
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self._toolbar.addWidget(spacer)
@@ -357,6 +465,7 @@ class ObjectSelectionWindow(QWidget):
         self._toolbar.addAction(self._save_as_action)
         self._set_toolbar_role(self._include_action, "positive")
         self._set_toolbar_role(self._exclude_action, "negative")
+        self._set_toolbar_role(self._show_points_action, "points")
         self._set_toolbar_role(self._reset_prompts_action, "reset")
         self._set_toolbar_role(self._reset_zoom_action, "navigation")
         self._set_toolbar_role(self._pan_action, "pan")
@@ -365,6 +474,7 @@ class ObjectSelectionWindow(QWidget):
         for action in (
             self._include_action,
             self._exclude_action,
+            self._show_points_action,
             self._reset_zoom_action,
             self._pan_action,
             self._copy_action,
@@ -398,6 +508,21 @@ class ObjectSelectionWindow(QWidget):
             "  padding: 0 3px 0 1px;"
             "  font-weight: 600;"
             "}"
+            "QToolBar#selectionToolbar QComboBox {"
+            "  color: #24282e; background: #eceef0;"
+            "  border: 1px solid #a6abb2; border-radius: 6px; padding: 5px 8px;"
+            "}"
+            "QToolBar#selectionToolbar QFrame#opacityGroup {"
+            "  background: #eceef0; border: 1px solid #a6abb2;"
+            "  border-radius: 6px;"
+            "}"
+            "QToolBar#selectionToolbar QFrame#opacityGroup:disabled {"
+            "  background: #ced1d5; border-color: #b4b8be;"
+            "}"
+            "QToolBar#selectionToolbar QLabel { color: #30343a; }"
+            "QToolBar#selectionToolbar QToolButton#maskColorButton {"
+            "  min-width: 24px; padding: 6px;"
+            "}"
             "QToolBar#selectionToolbar QToolButton {"
             "  color: #24282e;"
             "  background: #eceef0;"
@@ -428,6 +553,12 @@ class ObjectSelectionWindow(QWidget):
             "  color: #240707;"
             "  background: #ff6861;"
             "  border-color: #ff8b85;"
+            "  font-weight: 700;"
+            "}"
+            "QToolBar#selectionToolbar QToolButton[toolRole='points']:checked {"
+            "  color: #071521;"
+            "  background: #8ed0f5;"
+            "  border-color: #55a9d8;"
             "  font-weight: 700;"
             "}"
             "QToolBar#selectionToolbar QToolButton[toolRole='candidate']:checked {"
@@ -660,8 +791,29 @@ class ObjectSelectionWindow(QWidget):
     def set_mask(self, mask: NDArray[np.bool_]) -> None:
         if mask.shape != (self._image.height(), self._image.width()):
             raise ValueError("mask dimensions must match the selection image")
+        self._mask = np.ascontiguousarray(mask, dtype=np.bool_)
+        self._rebuild_mask_images()
+        self._status_overlay.hide()
+        self.update()
+
+    def _rebuild_mask_images(self) -> None:
+        if self._mask is None:
+            self._mask_image = None
+            self._outline_image = None
+            self._cutout_image = None
+            self._cutout_bounds = None
+            return
+        mask = self._mask
+        color = self._mask_color
+        alpha = round(255 * self._mask_opacity / 100)
         rgba = np.zeros((mask.shape[0], mask.shape[1], 4), dtype=np.uint8)
-        rgba[mask] = (0, 170, 255, 105)
+        if self._mask_view is MaskView.MASK:
+            rgba[:, :] = (0, 0, 0, 255)
+            rgba[mask] = (255, 255, 255, 255)
+        elif self._mask_view is MaskView.EXCLUDED:
+            rgba[~mask] = (color.red(), color.green(), color.blue(), alpha)
+        else:
+            rgba[mask] = (color.red(), color.green(), color.blue(), alpha)
         self._mask_image = QImage(
             rgba.data,
             mask.shape[1],
@@ -669,11 +821,58 @@ class ObjectSelectionWindow(QWidget):
             rgba.strides[0],
             QImage.Format.Format_RGBA8888,
         ).copy()
-        self._status_overlay.hide()
-        self.update()
+
+        boundary = mask.copy()
+        if mask.shape[0] > 2 and mask.shape[1] > 2:
+            eroded = np.zeros_like(mask)
+            eroded[1:-1, 1:-1] = (
+                mask[1:-1, 1:-1]
+                & mask[:-2, 1:-1]
+                & mask[2:, 1:-1]
+                & mask[1:-1, :-2]
+                & mask[1:-1, 2:]
+            )
+            boundary &= ~eroded
+        outline_rgba = np.zeros_like(rgba)
+        outline_rgba[boundary] = (color.red(), color.green(), color.blue(), 255)
+        self._outline_image = QImage(
+            outline_rgba.data,
+            mask.shape[1],
+            mask.shape[0],
+            outline_rgba.strides[0],
+            QImage.Format.Format_RGBA8888,
+        ).copy()
+
+        selected_y, selected_x = np.nonzero(mask)
+        if len(selected_x) == 0:
+            self._cutout_image = None
+            self._cutout_bounds = None
+            return
+        left = int(selected_x.min())
+        top = int(selected_y.min())
+        right = int(selected_x.max()) + 1
+        bottom = int(selected_y.max()) + 1
+        self._cutout_bounds = QRect(left, top, right - left, bottom - top)
+        cropped_mask = mask[top:bottom, left:right]
+        alpha_data = np.ascontiguousarray(cropped_mask.astype(np.uint8) * 255)
+        alpha_image = QImage(
+            alpha_data.data,
+            cropped_mask.shape[1],
+            cropped_mask.shape[0],
+            alpha_data.strides[0],
+            QImage.Format.Format_Grayscale8,
+        ).copy()
+        self._cutout_image = self._image.copy(self._cutout_bounds).convertToFormat(
+            QImage.Format.Format_ARGB32
+        )
+        self._cutout_image.setAlphaChannel(alpha_image)
 
     def clear_mask(self) -> None:
+        self._mask = None
         self._mask_image = None
+        self._outline_image = None
+        self._cutout_image = None
+        self._cutout_bounds = None
         self._status_overlay.hide()
         self.update()
 
@@ -696,9 +895,7 @@ class ObjectSelectionWindow(QWidget):
                 score = float(scores[index])
                 action.setText(f"{index + 1} ({score:.3f})")
                 self._candidate_buttons[index].set_candidate_text(index + 1, score)
-                action.setToolTip(
-                    f"Select mask {index + 1} — confidence {score:.3f}"
-                )
+                action.setToolTip(f"Select mask {index + 1} — confidence {score:.3f}")
         if self._candidate_masks:
             self.set_mask(self._candidate_masks[0])
             self._set_export_enabled(True)
@@ -742,6 +939,61 @@ class ObjectSelectionWindow(QWidget):
 
     def _set_point_mode(self, mode: PointLabel) -> None:
         self._point_mode = mode
+
+    def _show_points_toggled(self, visible: bool) -> None:
+        self._show_points = visible
+        if visible:
+            icon = QIcon.fromTheme("view-visible", _toolbar_icon("eye-open"))
+            self._show_points_action.setText("Show points")
+            self._show_points_action.setToolTip("Hide prompt points")
+        else:
+            icon = QIcon.fromTheme("view-hidden", _toolbar_icon("eye-closed"))
+            self._show_points_action.setText("Hide points")
+            self._show_points_action.setToolTip("Show prompt points")
+        self._show_points_action.setIcon(icon)
+        self.update()
+
+    def _view_changed(self, index: int) -> None:
+        view = self._view_combo.itemData(index)
+        if not isinstance(view, MaskView):
+            return
+        self._mask_view = view
+        opacity_enabled = view in {
+            MaskView.OVERLAY,
+            MaskView.OUTLINE,
+            MaskView.EXCLUDED,
+        }
+        self._opacity_group.setEnabled(opacity_enabled)
+        self._color_button.setEnabled(view not in {MaskView.MASK, MaskView.CUTOUT})
+        self._rebuild_mask_images()
+        self.update()
+
+    def _set_mask_color(self, value: str) -> None:
+        self._mask_color = QColor(value)
+        self._update_mask_color_ui()
+        self._rebuild_mask_images()
+        self.update()
+
+    def _opacity_changed(self, value: int) -> None:
+        self._mask_opacity = value
+        self._opacity_slider.setToolTip(f"Mask opacity: {value}%")
+        self._rebuild_mask_images()
+        self.update()
+
+    def _update_mask_color_ui(self) -> None:
+        color = self._mask_color.name()
+        self._color_button.setStyleSheet(
+            "QToolButton#maskColorButton {"
+            f" background: {color}; border: 2px solid #ffffff;"
+            " border-radius: 4px; min-width: 14px; max-width: 14px;"
+            " min-height: 14px; max-height: 14px; padding: 2px; }"
+        )
+        for button in self._candidate_buttons:
+            button.setStyleSheet(
+                "QToolButton:checked {"
+                f" background: {color}; border-color: {color}; font-weight: 700;"
+                "}"
+            )
 
     def _set_toolbar_role(self, action: QAction, role: str) -> None:
         button = self._toolbar.widgetForAction(action)
@@ -917,21 +1169,64 @@ class ObjectSelectionWindow(QWidget):
         painter.setClipRect(self._viewport_rect())
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         target = self._image_rect()
-        painter.drawImage(target, self._image)
-        if self._mask_image is not None:
+        if (
+            self._mask_view is MaskView.CUTOUT
+            and self._cutout_image is not None
+            and self._cutout_bounds is not None
+        ):
+            bounds = self._cutout_bounds
+            scale_x = target.width() / self._image.width()
+            scale_y = target.height() / self._image.height()
+            export_target = QRectF(
+                target.left() + bounds.left() * scale_x,
+                target.top() + bounds.top() * scale_y,
+                bounds.width() * scale_x,
+                bounds.height() * scale_y,
+            )
+            painter.fillRect(target, QColor("#17191c"))
+            tile = max(6.0, 12.0 * scale_x)
+            rows = ceil(export_target.height() / tile)
+            columns = ceil(export_target.width() / tile)
+            for row in range(rows):
+                for column in range(columns):
+                    shade = "#eeeeee" if (row + column) % 2 == 0 else "#bdbdbd"
+                    painter.fillRect(
+                        QRectF(
+                            export_target.left() + column * tile,
+                            export_target.top() + row * tile,
+                            min(tile, export_target.width() - column * tile),
+                            min(tile, export_target.height() - row * tile),
+                        ),
+                        QColor(shade),
+                    )
+            painter.drawImage(export_target, self._cutout_image)
+            painter.setPen(QPen(QColor("#8d939b"), 1))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(export_target)
+        elif self._mask_view is MaskView.MASK and self._mask_image is not None:
             painter.drawImage(target, self._mask_image)
+        else:
+            painter.drawImage(target, self._image)
+            if self._mask_image is not None:
+                painter.drawImage(target, self._mask_image)
+            shows_outline = self._mask_view is MaskView.OUTLINE
+            if shows_outline and self._outline_image is not None:
+                painter.drawImage(target, self._outline_image)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        for point in self._points:
-            color = (
-                QColor("#35c759")
-                if point.label is PointLabel.INCLUDE
-                else QColor("#ff453a")
-            )
-            painter.setPen(QPen(QColor("white"), 2))
-            painter.setBrush(color)
-            painter.drawEllipse(
-                self._image_to_view(point), self.MARKER_RADIUS, self.MARKER_RADIUS
-            )
+        if self._show_points:
+            for point in self._points:
+                color = (
+                    QColor("#35c759")
+                    if point.label is PointLabel.INCLUDE
+                    else QColor("#ff453a")
+                )
+                painter.setPen(QPen(QColor("white"), 2))
+                painter.setBrush(color)
+                painter.drawEllipse(
+                    self._image_to_view(point),
+                    self.MARKER_RADIUS,
+                    self.MARKER_RADIUS,
+                )
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

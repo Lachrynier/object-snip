@@ -84,9 +84,26 @@ No output shortcut is defined here. Confirmation, copy, and save are owned by
 
 ## Mask presentation
 
-The active mask remains visible without obscuring the source image. The initial
-presentation should use a translucent tint and a clear boundary. Dimming outside
-the selection is optional and should be tested rather than assumed.
+The toolbar offers five inspection views without changing the active mask,
+prompts, zoom, pan, or exported result:
+
+- **Overlay** shows the source image with the mask filled using the selected
+  color and opacity.
+- **Mask** shows included pixels as white and excluded pixels as black.
+- **Cutout** shows the minimal export bounding box over a checkerboard
+  transparency grid, with the rest of the full image coordinate frame darkened.
+- **Outline** shows the source image with a translucent colored interior and a
+  solid outline in the same base color. Opacity applies to the interior only.
+- **Excluded** leaves selected pixels unchanged and dims excluded pixels using
+  the selected color and opacity, without an outline.
+
+The mask color is chosen from a compact preset palette and is also used by the
+active candidate button. Opacity is available for Overlay, Outline, and Excluded
+and remains visible but disabled in Mask and Cutout views. The opacity label is
+centered above its slider inside a single framed control. An open-eye/closed-eye
+toolbar toggle controls prompt-marker visibility in every view without changing
+or removing the prompts. The selection window opens maximized with normal window
+controls.
 
 Mask rendering updates from the returned mask without reconstructing the whole
 UI scene. The visible candidate is session state, not state held only by a

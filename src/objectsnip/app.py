@@ -219,7 +219,7 @@ class ObjectSnipApplication(QObject):
         self._segmentation_result = None
         self._active_candidate = 0
         self._start_image_encoding()
-        selection_window.show()
+        selection_window.showMaximized()
         selection_window.raise_()
         selection_window.activateWindow()
 

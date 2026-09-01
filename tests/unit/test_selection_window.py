@@ -1,11 +1,19 @@
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize
+import numpy as np
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QImage
+from PySide6.QtWidgets import QApplication, QWidgetAction
 
+from objectsnip.segmentation.interface import PointLabel, PointPrompt
 from objectsnip.ui.selection_window import (
+    MaskView,
+    ObjectSelectionWindow,
     fitted_image_rect,
     view_to_image_point,
     zoomed_image_rect,
     zoomed_viewport_rect,
 )
+
+_APP = QApplication.instance() or QApplication([])
 
 
 def test_landscape_image_is_fitted_and_vertically_centered() -> None:
@@ -75,3 +83,102 @@ def test_zoomed_viewport_expands_until_it_fills_canvas() -> None:
 
     assert expanding == QRectF(0, 58.75, 800, 562.5)
     assert full == canvas
+
+
+def test_mask_view_renders_binary_black_and_white() -> None:
+    window = ObjectSelectionWindow(QImage(3, 3, QImage.Format.Format_RGB32))
+    mask = np.zeros((3, 3), dtype=np.bool_)
+    mask[1, 1] = True
+
+    window._view_combo.setCurrentIndex(list(MaskView).index(MaskView.MASK))
+    window.set_mask(mask)
+
+    assert window._mask_image is not None
+    assert window._mask_image.pixelColor(0, 0) == QColor("black")
+    assert window._mask_image.pixelColor(1, 1) == QColor("white")
+    assert not window._opacity_slider.isEnabled()
+    assert not window._color_button.isEnabled()
+
+
+def test_outline_uses_shared_color_and_slider_opacity_inside() -> None:
+    window = ObjectSelectionWindow(QImage(5, 5, QImage.Format.Format_RGB32))
+    mask = np.ones((5, 5), dtype=np.bool_)
+    window._view_combo.setCurrentIndex(list(MaskView).index(MaskView.OUTLINE))
+    window._set_mask_color("#f044d1")
+    window._opacity_slider.setValue(25)
+
+    window.set_mask(mask)
+
+    assert window._mask_image is not None
+    assert window._outline_image is not None
+    interior = window._mask_image.pixelColor(2, 2)
+    outline = window._outline_image.pixelColor(0, 0)
+    assert interior.red() == outline.red() == 240
+    assert interior.green() == outline.green() == 68
+    assert interior.blue() == outline.blue() == 209
+    assert interior.alpha() == round(255 * 0.25)
+    assert outline.alpha() == 255
+
+
+def test_excluded_view_dims_only_the_background() -> None:
+    window = ObjectSelectionWindow(QImage(3, 3, QImage.Format.Format_RGB32))
+    mask = np.zeros((3, 3), dtype=np.bool_)
+    mask[1, 1] = True
+    window._view_combo.setCurrentIndex(list(MaskView).index(MaskView.EXCLUDED))
+    window._opacity_slider.setValue(80)
+
+    window.set_mask(mask)
+
+    assert window._mask_image is not None
+    assert window._mask_image.pixelColor(1, 1).alpha() == 0
+    assert window._mask_image.pixelColor(0, 0) == QColor(0, 170, 255, 204)
+
+
+def test_cutout_uses_the_masks_minimal_bounding_box() -> None:
+    window = ObjectSelectionWindow(QImage(8, 6, QImage.Format.Format_RGB32))
+    mask = np.zeros((6, 8), dtype=np.bool_)
+    mask[2:5, 3:7] = True
+
+    window.set_mask(mask)
+
+    assert window._cutout_bounds == QRect(3, 2, 4, 3)
+    assert window._cutout_image is not None
+    assert window._cutout_image.size() == QSize(4, 3)
+
+
+def test_show_points_toggle_hides_markers_without_removing_prompts() -> None:
+    window = ObjectSelectionWindow(QImage(3, 3, QImage.Format.Format_RGB32))
+    window._points.append(PointPrompt(1, 1, PointLabel.INCLUDE))
+
+    window._show_points_action.setChecked(False)
+
+    assert not window._show_points
+    assert window._show_points_action.text() == "Hide points"
+    assert not window._show_points_action.icon().isNull()
+    assert window.points == (PointPrompt(1, 1, PointLabel.INCLUDE),)
+
+
+def test_color_menu_uses_compact_swatch_widgets() -> None:
+    window = ObjectSelectionWindow(QImage(3, 3, QImage.Format.Format_RGB32))
+    menu = window._color_button.menu()
+
+    assert menu is not None
+    actions = menu.actions()
+    assert all(isinstance(action, QWidgetAction) for action in actions)
+    swatches = [action.defaultWidget() for action in actions]
+    assert all(swatch is not None for swatch in swatches)
+    assert all(swatch.size().width() == 44 for swatch in swatches if swatch)
+    assert menu.sizeHint().width() < 60
+
+
+def test_opacity_label_and_slider_are_stacked() -> None:
+    window = ObjectSelectionWindow(QImage(3, 3, QImage.Format.Format_RGB32))
+    layout = window._opacity_group.layout()
+
+    assert layout is not None
+    assert layout.indexOf(window._opacity_label) < layout.indexOf(
+        window._opacity_slider
+    )
+    assert window._opacity_label.alignment() & Qt.AlignmentFlag.AlignHCenter
+    assert window._opacity_group.width() == 108
+    assert window._opacity_slider.value() == 40
