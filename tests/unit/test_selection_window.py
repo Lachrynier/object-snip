@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QApplication, QWidgetAction
 
@@ -38,13 +38,13 @@ def test_empty_image_or_viewport_has_no_target_rect() -> None:
 
 
 def test_view_point_maps_to_original_image_coordinates() -> None:
-    target = QRect(100, 50, 400, 200)
+    target = QRectF(100, 50, 400, 200)
 
-    assert view_to_image_point(QPoint(300, 150), target, QSize(100, 50)) == (
+    assert view_to_image_point(QPointF(300, 150), target, QSize(100, 50)) == (
         50.0,
         25.0,
     )
-    assert view_to_image_point(QPoint(50, 50), target, QSize(100, 50)) is None
+    assert view_to_image_point(QPointF(50, 50), target, QSize(100, 50)) is None
 
 
 def test_zoomed_image_rect_uses_image_coordinate_as_view_center() -> None:
@@ -163,9 +163,10 @@ def test_color_menu_uses_compact_swatch_widgets() -> None:
     menu = window._color_button.menu()
 
     assert menu is not None
-    actions = menu.actions()
-    assert all(isinstance(action, QWidgetAction) for action in actions)
-    swatches = [action.defaultWidget() for action in actions]
+    swatches = []
+    for action in menu.actions():
+        assert isinstance(action, QWidgetAction)
+        swatches.append(action.defaultWidget())
     assert all(swatch is not None for swatch in swatches)
     assert all(swatch.size().width() == 44 for swatch in swatches if swatch)
     assert menu.sizeHint().width() < 60

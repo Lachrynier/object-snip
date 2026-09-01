@@ -748,7 +748,9 @@ class ObjectSelectionWindow(QWidget):
         self._export_link_path = saved_path
         display_path = escape(str(saved_path))
         file_url = escape(
-            bytes(QUrl.fromLocalFile(str(saved_path)).toEncoded()).decode("ascii"),
+            QUrl.fromLocalFile(str(saved_path)).toString(
+                QUrl.ComponentFormattingOption.FullyEncoded
+            ),
             quote=True,
         )
         self._export_message.setToolTip(str(saved_path))

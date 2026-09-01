@@ -9,6 +9,7 @@ from objectsnip.segmentation.interface import (
     ImageData,
     ImageSegmenter,
     PredictionRequest,
+    SegmentationResult,
 )
 
 
@@ -96,7 +97,9 @@ class ImageEncodingService(QObject):
             return
         self.encoded.emit(generation, encoding)
 
-    def _prediction_finished(self, generation: int, future: Future[object]) -> None:
+    def _prediction_finished(
+        self, generation: int, future: Future[SegmentationResult]
+    ) -> None:
         with self._lock:
             current = generation == self._generation and not self._closed
         if not current or future.cancelled():
