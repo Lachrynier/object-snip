@@ -29,6 +29,7 @@ Run `just` to list the available recipes.
 | `just model tiny` | Download and verify another model size |
 | `just run` | Start ObjectSnip |
 | `just debug` | Start ObjectSnip with capture artifacts enabled |
+| `just icon` | Regenerate the committed application icon assets |
 | `just test` | Run the unit test suite |
 | `just lint` | Check Ruff lint rules |
 | `just format-check` | Verify formatting |
@@ -41,6 +42,28 @@ Run `just` to list the available recipes.
 Run `just check` before committing when practical. Recipes delegate Python and
 environment execution to `uv`; CI should use the same entry points rather than
 duplicate their commands.
+
+## Application icon
+
+The resolution-independent source artwork and its 512 x 512 runtime rendition
+are committed under `src/objectsnip/assets/`:
+
+```text
+objectsnip.svg
+objectsnip-512.png
+```
+
+The SVG is the source of truth. The PNG is loaded from the installed Python
+package and used for both the system tray and application windows. Regenerate
+both files after changing the design, palette, or geometry with:
+
+```bash
+just icon
+```
+
+The deterministic generator lives at `scripts/render_icon.py`. Its default
+512-pixel output is suitable for Qt and Linux desktop use; other raster sizes
+can be generated with `--size` when a native application package needs them.
 
 ## VS Code
 

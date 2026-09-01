@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
+from importlib import resources
 from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QObject, Slot
-from PySide6.QtGui import QAction, QGuiApplication, QImage, QScreen
+from PySide6.QtGui import QAction, QGuiApplication, QIcon, QImage, QPixmap, QScreen
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QMenu,
     QMessageBox,
-    QStyle,
     QSystemTrayIcon,
 )
 
@@ -38,6 +38,17 @@ from objectsnip.segmentation.service import ImageEncodingService
 from objectsnip.shortcuts.portal import PortalGlobalShortcutService
 from objectsnip.ui.overlay import CaptureOverlay
 from objectsnip.ui.selection_window import ObjectSelectionWindow
+
+
+def application_icon() -> QIcon:
+    """Load the application icon from package data, including zipped wheels."""
+    icon_data = (
+        resources.files("objectsnip").joinpath("assets/objectsnip-512.png").read_bytes()
+    )
+    pixmap = QPixmap()
+    if not pixmap.loadFromData(icon_data):
+        raise RuntimeError("the packaged ObjectSnip icon could not be loaded")
+    return QIcon(pixmap)
 
 
 def rank_segmentation_result(result: SegmentationResult) -> SegmentationResult:
@@ -101,8 +112,7 @@ class ObjectSnipApplication(QObject):
         self._encoding.prediction_failed.connect(self._mask_prediction_failed)
         application.aboutToQuit.connect(self._encoding.close)
 
-        icon = application.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        self._tray = QSystemTrayIcon(icon, self)
+        self._tray = QSystemTrayIcon(application.windowIcon(), self)
         self._tray.setToolTip("ObjectSnip")
 
         menu = QMenu()
@@ -375,6 +385,7 @@ def run(
 ) -> int:
     application = QApplication([sys.argv[0]])
     application.setApplicationName("ObjectSnip")
+    application.setWindowIcon(application_icon())
     application.setQuitOnLastWindowClosed(False)
 
     if not QSystemTrayIcon.isSystemTrayAvailable():

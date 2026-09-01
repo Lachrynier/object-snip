@@ -18,6 +18,10 @@ run *args:
 debug:
     uv run objectsnip --debug-captures
 
+# Regenerate the committed application icon assets.
+icon:
+    uv run python scripts/render_icon.py
+
 # Run the unit test suite.
 test:
     uv run pytest
