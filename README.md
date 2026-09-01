@@ -8,6 +8,8 @@ Object selection is powered by SAM 2.1, a promptable image-segmentation
 foundation model. The model runs fully on your computer and provides fast feedback as you
 adjust the selection.
 
+![ObjectSnip capture, selection, refinement, and export workflow](assets/demo.gif)
+
 The workflow is:
 
 1. Start a capture from the system tray or with the keyboard shortcut
@@ -28,8 +30,6 @@ The workflow is:
 > unverified.
 
 ## Examples
-
-<!-- TODO: Add a GIF or video demonstrating the complete workflow. -->
 
 ObjectSnip can be used for tasks such as:
 
