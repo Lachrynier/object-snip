@@ -10,13 +10,13 @@ ObjectSnip uses Python 3.12, `uv` for environment and package management, and
 
 ```bash
 uv sync
-just model [<model>]
 just run [--model <model>]
 ```
 
-`just model` downloads and verifies the default SAM 2.1 Small checkpoint. Pass
-`tiny`, `base-plus`, or `large` to download another supported size. See
-[`SAM2.md`](SAM2.md) for model and device options.
+`just run` automatically downloads and verifies the selected SAM 2.1 checkpoint
+when it is missing. `just model` remains available to download a checkpoint in
+advance; pass `tiny`, `base-plus`, or `large` to select another supported size.
+See [`SAM2.md`](SAM2.md) for model and device options.
 
 ## Project commands
 
@@ -25,7 +25,7 @@ Run `just` to list the available recipes.
 | Command | Purpose |
 |---|---|
 | `just setup` | Install or update the locked development environment |
-| `just model` | Download and verify the default Small checkpoint |
+| `just model` | Download and verify the default Small checkpoint in advance |
 | `just model tiny` | Download and verify another model size |
 | `just run` | Start ObjectSnip |
 | `just debug` | Start ObjectSnip with capture artifacts enabled |

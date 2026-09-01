@@ -38,14 +38,18 @@ committed to this repository.
 
 ## Setup
 
-Install the locked Python dependencies and verified checkpoint:
+Install the locked Python dependencies and start ObjectSnip:
 
 ```bash
 just setup
-just model
+just run
 ```
 
-Download another size by passing its name to the recipe:
+On first launch, ObjectSnip displays download progress, speed, and ETA in the
+terminal, then verifies and installs the checkpoint under `.models` before
+starting.
+
+Models can still be downloaded in advance, for example for offline use:
 
 ```bash
 just model tiny

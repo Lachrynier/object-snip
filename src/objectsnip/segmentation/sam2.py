@@ -51,11 +51,6 @@ class Sam2ImageSegmenter:
         self._predictor: Any = None
 
     def load(self) -> None:
-        if not self._checkpoint.is_file():
-            raise RuntimeError(
-                f"SAM 2 checkpoint not found: {self._checkpoint}. "
-                "Run `just model` or pass --sam2-checkpoint."
-            )
         try:
             import torch
             from sam2.build_sam import build_sam2

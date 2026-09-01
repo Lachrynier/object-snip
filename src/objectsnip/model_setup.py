@@ -5,6 +5,8 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.request import urlopen
 
+from tqdm import tqdm
+
 from objectsnip.segmentation.models import (
     DEFAULT_SAM2_MODEL,
     SAM2_MODEL_NAMES,
@@ -32,9 +34,20 @@ def download_model(model: Sam2Model, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(f"{output.suffix}.part")
     try:
-        with urlopen(model.url) as response, temporary.open("wb") as target:
+        with (
+            urlopen(model.url) as response,
+            temporary.open("wb") as target,
+            tqdm(
+                total=int(response.headers.get("Content-Length", 0)) or None,
+                desc=f"SAM 2.1 {model.name}",
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+            ) as progress,
+        ):
             while chunk := response.read(1024 * 1024):
                 target.write(chunk)
+                progress.update(len(chunk))
         actual_hash = file_sha256(temporary)
         if actual_hash != model.sha256:
             raise RuntimeError(
@@ -45,6 +58,17 @@ def download_model(model: Sam2Model, output: Path) -> None:
     finally:
         temporary.unlink(missing_ok=True)
     print(f"Installed SAM 2.1 {model.name} at {output}")
+
+
+def ensure_model(model: Sam2Model) -> None:
+    if model.checkpoint.is_file():
+        return
+    print(
+        f"Downloading SAM 2.1 {model.name} to {model.checkpoint}; "
+        "this may take a moment...",
+        flush=True,
+    )
+    download_model(model, model.checkpoint)
 
 
 def main() -> None:

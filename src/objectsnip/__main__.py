@@ -52,13 +52,32 @@ def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
         help="SAM 2 inference device; defaults to auto",
     )
     parsed = parser.parse_args(arguments)
+    parsed.custom_sam2_checkpoint = parsed.sam2_checkpoint is not None
     if parsed.sam2_checkpoint is None:
         parsed.sam2_checkpoint = SAM2_MODELS[parsed.model].checkpoint
     return parsed
 
 
+def ensure_selected_model(arguments: argparse.Namespace) -> None:
+    if arguments.segmenter != "sam2":
+        return
+    if arguments.custom_sam2_checkpoint:
+        if not arguments.sam2_checkpoint.is_file():
+            raise RuntimeError(
+                f"SAM 2 checkpoint not found: {arguments.sam2_checkpoint}"
+            )
+        return
+    from objectsnip.model_setup import ensure_model
+
+    ensure_model(SAM2_MODELS[arguments.model])
+
+
 def main() -> None:
     arguments = parse_arguments()
+    try:
+        ensure_selected_model(arguments)
+    except (OSError, RuntimeError) as exc:
+        raise SystemExit(f"objectsnip: error: {exc}") from exc
     from objectsnip.app import run
     from objectsnip.segmentation.config import create_segmenter
 

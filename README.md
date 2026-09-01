@@ -84,13 +84,7 @@ environment from the repository with:
 uv sync
 ```
 
-Download a model checkpoint:
-
-```text
-uv run python scripts/download_sam2.py [--model <model>]
-```
-
-Then start ObjectSnip with the same model:
+Start ObjectSnip with the model you want to use:
 
 ```text
 uv run objectsnip [--model <model>]
@@ -103,12 +97,14 @@ uv run objectsnip [--model <model>]
 - `base-plus`
 - `large`
 
-If `--model` is omitted, ObjectSnip uses `small`.
+If `--model` is omitted, ObjectSnip uses `small`. When the selected model is
+not already present in `.models`, ObjectSnip says that it is downloading the
+checkpoint and displays its progress, speed, and ETA in the terminal. It then
+verifies and installs the checkpoint automatically before starting.
 
 For example:
 
 ```bash
-uv run python scripts/download_sam2.py --model small
 uv run objectsnip --model small
 ```
 
