@@ -16,7 +16,7 @@ requirements.
 | 0.2 Interactive object selection | Implemented | Prove model-backed prompt and mask interaction on the locked crop |
 | 0.3 Daily utility | Implemented | Complete the invoke-select-export workflow |
 | 0.4 Selection quality | Deferred | Improve difficult masks after the core works |
-| 0.5 Platform robustness | In progress | Validate and harden desktop integration and distribution beyond Fedora Wayland |
+| 0.5 Platform robustness | In progress | Validate and harden desktop integration beyond Fedora Wayland and Windows 11 |
 | 1.0 Stable core utility | Deferred | Deliver a reliable supported product |
 
 ## 0.1 — Capture and context region
@@ -64,9 +64,9 @@ The accepted capture and selection workflows now connect to
 the clipboard or saved as a tightly cropped transparent PNG, and both actions
 provide confirmation without discarding the current selection.
 
-The complete workflow is working and has been manually tested on Fedora under
-Wayland. That is evidence for the primary development setup only, not broader
-platform support.
+The complete workflow is working and has been manually tested on Fedora Linux
+under Wayland and on Windows 11. That validates those two configurations only,
+not broader platform support.
 
 ## Later milestones
 

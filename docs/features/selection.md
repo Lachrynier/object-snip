@@ -46,6 +46,7 @@ behavior and should not be presented as available controls.
 | Select and drag a point | Move it visually and request updated predictions | Planned for 0.2 |
 | `Delete` or `Backspace` | Remove the selected prompt | Planned for 0.2 |
 | `1` / `2` | Activate Positive / Negative mode | Planned for 0.2 |
+| Two-finger touchpad movement | Pan the zoomed image in either axis | Implemented |
 | Mouse wheel over image | Zoom toward or away from the image point under the cursor | Implemented |
 | Drag with Pan active | Move the zoomed image within the viewport | Implemented |
 | Middle-button drag | Temporarily pan without changing the toolbar tool | Implemented |

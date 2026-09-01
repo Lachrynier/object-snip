@@ -65,7 +65,8 @@ These principles are **Draft** until individually accepted.
 
 The first useful product supports:
 
-- a Fedora Wayland desktop workflow, currently the only manually tested setup;
+- desktop workflows manually tested on Fedora Linux under Wayland and on
+  Windows 11;
 - a resident system-tray application invoked with `Super+Shift+O` initially;
 - a frozen screenshot of one screen;
 - a movable and resizable rectangular context region that the user explicitly
@@ -91,7 +92,7 @@ deliberately revised:
 - inpainting, background generation, or object removal;
 - image history or multi-object composition;
 - automatic updates and polished cross-platform installers;
-- full Windows and macOS support.
+- broader Linux/Windows support and full macOS support.
 
 Ideas mentioned in prior design discussions do not become commitments unless
 they are promoted into a live owning document.

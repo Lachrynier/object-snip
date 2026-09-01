@@ -68,9 +68,7 @@ class WindowsGlobalShortcutService(QObject, QAbstractNativeEventFilter):
         message: int,
     ) -> tuple[bool, int]:
         del event_type
-        native_message = ctypes.cast(
-            int(message), ctypes.POINTER(MSG)
-        ).contents
+        native_message = ctypes.cast(int(message), ctypes.POINTER(MSG)).contents
         if native_message.message == WM_HOTKEY and native_message.wParam == HOTKEY_ID:
             self.activated.emit()
             return True, 0

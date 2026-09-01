@@ -7,7 +7,16 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import (
+    QPointF,
+    QRect,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QUrl,
+    Signal,
+)
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -17,6 +26,7 @@ from PySide6.QtGui import (
     QGuiApplication,
     QIcon,
     QImage,
+    QInputDevice,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -1133,36 +1143,91 @@ class ObjectSelectionWindow(QWidget):
             return
         super().mouseReleaseEvent(event)
 
-    def wheelEvent(self, event: QWheelEvent) -> None:
-        image_position = self._view_to_image(event.position())
-        steps = event.angleDelta().y() / 120
-        if image_position is None or steps == 0:
-            super().wheelEvent(event)
+    def _pan_by_view_delta(self, delta: QPointF) -> None:
+        target = self._image_rect()
+        if target.isEmpty():
             return
+        scale = target.width() / self._image.width()
+        self._view_center = self._clamp_view_center(
+            QPointF(
+                self._view_center.x() - delta.x() / scale,
+                self._view_center.y() - delta.y() / scale,
+            )
+        )
+        self.update()
+
+    @staticmethod
+    def _is_touchpad_scroll(event: QWheelEvent) -> bool:
+        pixel_delta = event.pixelDelta()
+        angle_delta = event.angleDelta()
+        is_notched_mouse_wheel = (
+            pixel_delta.isNull()
+            and angle_delta.x() == 0
+            and angle_delta.y() != 0
+            and angle_delta.y() % 120 == 0
+        )
+        if is_notched_mouse_wheel:
+            return False
+        has_precision_angle = any(
+            value != 0 and value % 120 != 0
+            for value in (angle_delta.x(), angle_delta.y())
+        )
+        return (
+            event.device().type() == QInputDevice.DeviceType.TouchPad
+            or not pixel_delta.isNull()
+            or event.phase() != Qt.ScrollPhase.NoScrollPhase
+            or angle_delta.x() != 0
+            or has_precision_angle
+        )
+
+    def _zoom_at(self, position: QPointF, steps: float) -> bool:
+        image_position = self._view_to_image(position)
+        if image_position is None or steps == 0:
+            return False
         previous_zoom = self._zoom
         self._zoom = max(
             self.MIN_ZOOM,
             min(self.MAX_ZOOM, self._zoom * self.ZOOM_STEP**steps),
         )
         if self._zoom == previous_zoom:
-            event.accept()
-            return
-        viewport = self._viewport_rect()
-        viewport_center = viewport.center()
+            return True
+        viewport_center = self._viewport_rect().center()
         scale = self._image_rect().width() / self._image.width()
         self._view_center = self._clamp_view_center(
             QPointF(
-                image_position[0]
-                - (event.position().x() - viewport_center.x()) / scale,
-                image_position[1]
-                - (event.position().y() - viewport_center.y()) / scale,
+                image_position[0] - (position.x() - viewport_center.x()) / scale,
+                image_position[1] - (position.y() - viewport_center.y()) / scale,
             )
         )
         if self._pan_origin is not None:
-            self._pan_origin = event.position()
+            self._pan_origin = position
             self._pan_center_origin = QPointF(self._view_center)
         self.update()
-        event.accept()
+        return True
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if not (
+            event.modifiers() & Qt.KeyboardModifier.ControlModifier
+        ) and self._is_touchpad_scroll(event):
+            pixel_delta = event.pixelDelta()
+            delta = (
+                QPointF(pixel_delta)
+                if not pixel_delta.isNull()
+                else QPointF(event.angleDelta()) / 2
+            )
+            if not delta.isNull():
+                self._pan_by_view_delta(delta)
+            event.accept()
+            return
+
+        angle_delta = event.angleDelta().y()
+        pixel_delta = event.pixelDelta().y()
+        raw_delta = angle_delta if angle_delta else pixel_delta
+        handled = self._zoom_at(event.position(), raw_delta / 120)
+        if handled:
+            event.accept()
+        else:
+            super().wheelEvent(event)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         del event

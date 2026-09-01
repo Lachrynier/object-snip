@@ -22,9 +22,10 @@ The workflow is:
 
 > [!IMPORTANT]
 > ObjectSnip now provides the complete capture, selection, refinement, and
-> export workflow. It has only been tested on Fedora with a Wayland session;
-> other Linux distributions, desktop environments, display servers, and
-> operating systems are currently unverified.
+> export workflow. It has been manually tested on Fedora Linux with a Wayland
+> session and on Windows 11. Other Linux distributions, desktop environments,
+> display servers, Windows versions, and operating systems are currently
+> unverified.
 
 ## Examples
 
@@ -50,6 +51,7 @@ screenshot through a separate photo editor or uploading it to a web service.
 - **Mask 1–3**: choose between the candidates generated after each prompt.
 - Mouse wheel: zoom toward the pointer.
 - **Pan** drag or middle-button drag: move a zoomed image.
+- Two-finger touchpad movement: pan horizontally or vertically.
 - **Reset prompts**: remove all points and generated masks.
 - **Reset zoom**: return to the centered fit-to-window view.
 - **Copy object**: copy the selected object as a tightly cropped image with a
@@ -62,7 +64,7 @@ screenshot through a separate photo editor or uploading it to a web service.
 
 The current development build requires:
 
-- Fedora with Wayland and a system tray (the only configuration tested so far);
+- Fedora Linux with Wayland or Windows 11, with a system tray;
 - Python 3.12 or newer;
 - [`uv`](https://docs.astral.sh/uv/);
 - enough memory and storage to run the selected SAM 2.1 model.
@@ -72,8 +74,8 @@ is `small`.
 
 On Wayland, screen capture and the global shortcut use XDG desktop portals. The
 desktop may ask for permission or allow you to choose a different shortcut.
-The code includes a direct screen-capture path for other Qt platforms, but it
-has not yet been validated outside the Fedora Wayland setup.
+Windows uses the direct Qt screen-capture path. The complete workflow has been
+validated on Fedora Wayland and Windows 11, but not yet on other Qt platforms.
 
 ## Install and run
 

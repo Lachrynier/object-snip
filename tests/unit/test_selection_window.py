@@ -1,6 +1,8 @@
+from unittest.mock import Mock
+
 import numpy as np
-from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QImage
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QImage, QInputDevice
 from PySide6.QtWidgets import QApplication, QWidgetAction
 
 from objectsnip.segmentation.interface import PointLabel, PointPrompt
@@ -183,3 +185,87 @@ def test_opacity_label_and_slider_are_stacked() -> None:
     assert window._opacity_label.alignment() & Qt.AlignmentFlag.AlignHCenter
     assert window._opacity_group.width() == 108
     assert window._opacity_slider.value() == 40
+
+
+def test_unmodified_wheel_event_pans_in_both_axes_automatically() -> None:
+    window = ObjectSelectionWindow(QImage(400, 300, QImage.Format.Format_RGB32))
+    window._pan_by_view_delta = Mock()
+    event = Mock()
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    event.pixelDelta.return_value = QPoint(18, -11)
+    event.angleDelta.return_value = QPoint()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+
+    window.wheelEvent(event)
+
+    window._pan_by_view_delta.assert_called_once_with(QPointF(18, -11))
+    event.accept.assert_called_once()
+
+
+def test_precision_angle_touchpad_event_pans_automatically() -> None:
+    window = ObjectSelectionWindow(QImage(400, 300, QImage.Format.Format_RGB32))
+    window._pan_by_view_delta = Mock()
+    event = Mock()
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    event.pixelDelta.return_value = QPoint()
+    event.angleDelta.return_value = QPoint(0, 24)
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.device.return_value.type.return_value = QInputDevice.DeviceType.Mouse
+
+    window.wheelEvent(event)
+
+    window._pan_by_view_delta.assert_called_once_with(QPointF(0, 12))
+    event.accept.assert_called_once()
+
+
+def test_control_modified_wheel_event_stays_out_of_pan_path() -> None:
+    window = ObjectSelectionWindow(QImage(400, 300, QImage.Format.Format_RGB32))
+    window._pan_by_view_delta = Mock()
+    window._zoom_at = Mock(return_value=True)
+    event = Mock()
+    event.modifiers.return_value = Qt.KeyboardModifier.ControlModifier
+    event.angleDelta.return_value = QPoint(0, 120)
+    event.pixelDelta.return_value = QPoint()
+    event.position.return_value = QPointF(200, 150)
+
+    window.wheelEvent(event)
+
+    window._pan_by_view_delta.assert_not_called()
+    window._zoom_at.assert_called_once_with(QPointF(200, 150), 1)
+    event.accept.assert_called_once()
+
+
+def test_unmodified_notched_mouse_wheel_zooms() -> None:
+    window = ObjectSelectionWindow(QImage(400, 300, QImage.Format.Format_RGB32))
+    window._zoom_at = Mock(return_value=True)
+    event = Mock()
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    event.angleDelta.return_value = QPoint(0, 120)
+    event.pixelDelta.return_value = QPoint()
+    event.phase.return_value = Qt.ScrollPhase.NoScrollPhase
+    event.device.return_value.type.return_value = QInputDevice.DeviceType.Mouse
+    event.position.return_value = QPointF(200, 150)
+
+    window.wheelEvent(event)
+
+    window._zoom_at.assert_called_once_with(QPointF(200, 150), 1)
+    event.accept.assert_called_once()
+
+
+def test_notched_wheel_zooms_when_linux_reports_touchpad_device() -> None:
+    window = ObjectSelectionWindow(QImage(400, 300, QImage.Format.Format_RGB32))
+    window._pan_by_view_delta = Mock()
+    window._zoom_at = Mock(return_value=True)
+    event = Mock()
+    event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
+    event.angleDelta.return_value = QPoint(0, -120)
+    event.pixelDelta.return_value = QPoint()
+    event.phase.return_value = Qt.ScrollPhase.ScrollUpdate
+    event.device.return_value.type.return_value = QInputDevice.DeviceType.TouchPad
+    event.position.return_value = QPointF(200, 150)
+
+    window.wheelEvent(event)
+
+    window._pan_by_view_delta.assert_not_called()
+    window._zoom_at.assert_called_once_with(QPointF(200, 150), -1)
+    event.accept.assert_called_once()

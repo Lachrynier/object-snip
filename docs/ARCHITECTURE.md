@@ -143,10 +143,10 @@ error. Missing services, malformed responses, and unreadable returned images
 are errors. Other Qt platforms currently use direct `QScreen` capture, with a
 uniform-image guard to reject unusable buffers such as a black XWayland root.
 
-The end-to-end application has so far been manually tested only on Fedora under
-Wayland. Other distributions, desktop environments, X11, and non-Linux Qt
-platforms should be treated as implemented code paths without validation, not
-as supported configurations.
+The end-to-end application has been manually tested on Fedora Linux under
+Wayland and on Windows 11. Other distributions, desktop environments, display
+servers, Windows versions, and non-Linux Qt platforms should be treated as
+implemented code paths without validation, not as supported configurations.
 
 ## Export boundary
 
@@ -258,7 +258,8 @@ of these invariants should include a decision record.
 - interactive mask quality and latency on consumer hardware;
 - X11 versus Wayland capture and shortcut integration;
 - high-DPI and multi-monitor coordinate correctness;
-- clipboard interoperability outside the tested Fedora Wayland environment;
+- clipboard interoperability outside the tested Fedora Wayland and Windows 11
+  environments;
 - packaging model code and weights without excessive complexity.
 
 The roadmap separates these risks so they are not debugged simultaneously.

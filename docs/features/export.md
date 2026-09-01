@@ -73,7 +73,8 @@ Clipboard content changes only after explicit user confirmation.
 - [x] Successful export provides confirmation and preserves the active session.
 - [x] Failure preserves a recoverable session and presents concise feedback.
 - [x] Export transformation is usable without Qt or a running model.
-- [x] The complete export workflow has been manually tested on Fedora Wayland.
+- [x] The complete export workflow has been manually tested on Fedora Linux
+  under Wayland and on Windows 11.
 
 ## Open decisions
 
