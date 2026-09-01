@@ -11,7 +11,7 @@ adjust the selection.
 The workflow is:
 
 1. Start a capture from the system tray or with the keyboard shortcut
-   (`Super+Shift+O`).
+   (`Super+Shift+O` on Linux or `Win+Shift+O` on Windows).
 2. Draw and adjust a region around the object, then choose **Lock region**.
 3. Add a positive point to include part of the object or a negative point to
    exclude an area.

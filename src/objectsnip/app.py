@@ -35,7 +35,7 @@ from objectsnip.segmentation.interface import (
     SegmentationResult,
 )
 from objectsnip.segmentation.service import ImageEncodingService
-from objectsnip.shortcuts.portal import PortalGlobalShortcutService
+from objectsnip.shortcuts import create_global_shortcut_service
 from objectsnip.ui.overlay import CaptureOverlay
 from objectsnip.ui.selection_window import ObjectSelectionWindow
 
@@ -101,7 +101,7 @@ class ObjectSnipApplication(QObject):
         self._portal.captured.connect(self._portal_captured)
         self._portal.cancelled.connect(self._portal_cancelled)
         self._portal.failed.connect(self._capture_failed)
-        self._shortcut = PortalGlobalShortcutService(self)
+        self._shortcut = create_global_shortcut_service(self)
         self._shortcut.activated.connect(self.start_capture)
         self._shortcut.failed.connect(self._shortcut_failed)
         application.aboutToQuit.connect(self._shortcut.stop)
